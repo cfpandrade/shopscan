@@ -88,15 +88,13 @@ export default function useShoppingList() {
 
   const refreshPrices = useCallback(async (id) => {
     try {
-      const res = await api.post(`/list/${id}/refresh-prices`)
-      setItems(prev =>
-        prev.map(item => item.id === id ? { ...item, prices: res.data.prices } : item)
-      )
+      await api.post(`/list/${id}/refresh-prices`)
+      await fetchList()
     } catch (err) {
       setError(err.message || 'Failed to refresh prices')
       throw err
     }
-  }, [])
+  }, [fetchList])
 
   return {
     items,
