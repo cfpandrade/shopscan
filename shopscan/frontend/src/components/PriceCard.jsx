@@ -54,7 +54,7 @@ export default function PriceCard({ prices, loading }) {
             }`}
           >
             {/* Store logo */}
-            <Logo className="h-5 w-auto flex-shrink-0" />
+            <Logo className="h-7 w-auto flex-shrink-0" />
 
             {/* Price */}
             <span className={`text-sm font-bold flex-shrink-0 ${isBest ? 'text-green-400' : 'text-slate-100'}`}>

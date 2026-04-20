@@ -38,7 +38,10 @@ export async function searchDunnes(query) {
   }
 
   const executablePath =
-    process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    process.env.CHROMIUM_PATH ||
+    '/usr/bin/chromium-browser';
 
   let browser;
   try {

@@ -1,131 +1,23 @@
-import fetch from 'node-fetch';
-import * as cheerio from 'cheerio';
+import { chromium } from 'playwright-core';
 import { getCached, setCache } from '../cache.js';
 
 const TESCO_SEARCH_URL = 'https://www.tesco.ie/groceries/en-GB/search';
-const FETCH_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
-  Accept: 'text/html,application/xhtml+xml',
-  'Accept-Language': 'en-IE,en;q=0.9',
-};
-
 const ERROR_RESULT = [{ store: 'tesco', price: null, error: 'unavailable' }];
 
-/**
- * Parses a price string like "€1.49" or "1.49" into a float.
- * Returns null if parsing fails.
- */
-function parsePrice(str) {
-  if (!str) return null;
-  const match = str.replace(/,/g, '').match(/[\d]+\.?\d*/);
-  return match ? parseFloat(match[0]) : null;
+function getChromiumPath() {
+  return (
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    process.env.CHROMIUM_PATH ||
+    '/usr/bin/chromium-browser'
+  );
 }
 
 /**
- * Attempts to extract products from ld+json script blocks.
- * @param {import('cheerio').CheerioAPI} $
- * @returns {Array|null}
- */
-function extractFromLdJson($) {
-  const results = [];
-
-  $('script[type="application/ld+json"]').each((_, el) => {
-    try {
-      const data = JSON.parse($(el).html());
-
-      // Could be a single object or an array / @graph
-      const items = Array.isArray(data)
-        ? data
-        : data['@graph']
-        ? data['@graph']
-        : [data];
-
-      for (const item of items) {
-        if (item['@type'] === 'Product') {
-          const name = item.name || null;
-          const url = item.url || item.offers?.url || null;
-          const price = item.offers?.price
-            ? parseFloat(item.offers.price)
-            : null;
-          const priceCurrency = item.offers?.priceCurrency || '';
-          results.push({
-            store: 'tesco',
-            price,
-            price_per_unit: null,
-            product_url: url,
-            store_product_name: name,
-          });
-          if (results.length >= 3) break;
-        }
-      }
-    } catch {
-      // Ignore malformed JSON blocks
-    }
-  });
-
-  return results.length > 0 ? results : null;
-}
-
-/**
- * Attempts to extract products via CSS selectors.
- * @param {import('cheerio').CheerioAPI} $
- * @returns {Array}
- */
-function extractFromSelectors($) {
-  const results = [];
-
-  // Tesco product tiles
-  $('[data-auto="product-tile"]').each((_, el) => {
-    if (results.length >= 3) return false;
-
-    const $el = $(el);
-    const name =
-      $el.find('.product-details--content .name').text().trim() ||
-      $el.find('[class*="product-title"]').text().trim() ||
-      null;
-
-    const priceText =
-      $el.find('.price-per-sellable-unit .value').text().trim() ||
-      $el.find('[class*="price-per-sellable"]').text().trim() ||
-      $el.find('[class*="price"]').first().text().trim() ||
-      null;
-
-    const price = parsePrice(priceText);
-
-    const pricePerUnit =
-      $el.find('.price-per-quantity-weight .weight').text().trim() || null;
-
-    const relUrl =
-      $el.find('a[href*="/groceries/"]').attr('href') || null;
-    const product_url = relUrl
-      ? relUrl.startsWith('http')
-        ? relUrl
-        : `https://www.tesco.ie${relUrl}`
-      : null;
-
-    if (name || price !== null) {
-      results.push({
-        store: 'tesco',
-        price,
-        price_per_unit: pricePerUnit,
-        product_url,
-        store_product_name: name,
-      });
-    }
-  });
-
-  return results;
-}
-
-/**
- * Searches Tesco IE for the given query.
- * Returns up to 3 price results (or an error shape on failure).
- * @param {string} query
- * @returns {Promise<Array>}
+ * Searches Tesco IE for the given query using a headless browser.
+ * Uses Playwright to bypass the Cloudflare 403 that blocks plain fetch().
  */
 export async function searchTesco(query) {
-  // Check cache first
   const cached = getCached(query, 'tesco');
   if (cached) {
     return [
@@ -139,39 +31,109 @@ export async function searchTesco(query) {
     ];
   }
 
+  let browser;
   try {
+    browser = await chromium.launch({
+      executablePath: getChromiumPath(),
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      headless: true,
+    });
+
+    const context = await browser.newContext({
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      locale: 'en-IE',
+      viewport: { width: 1280, height: 800 },
+    });
+
+    const page = await context.newPage();
     const url = `${TESCO_SEARCH_URL}?query=${encodeURIComponent(query)}&count=5`;
-    const response = await fetch(url, { headers: FETCH_HEADERS, timeout: 15000 });
 
-    if (!response.ok) {
-      console.warn(`[tesco] HTTP ${response.status} for query "${query}"`);
-      return ERROR_RESULT;
-    }
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+    // Wait for either product tiles or a "no results" state
+    await page
+      .waitForSelector('[data-auto="product-tile"], .product-list--list-item, [class*="product-tile"]', {
+        timeout: 15000,
+      })
+      .catch(() => {
+        console.warn(`[tesco] Product tiles not found for "${query}" within timeout`);
+      });
 
-    // Try structured data first, fall back to selectors
-    let results = extractFromLdJson($);
-    if (!results || results.length === 0) {
-      results = extractFromSelectors($);
-    }
+    const results = await page.evaluate(() => {
+      const cards = Array.from(
+        document.querySelectorAll(
+          '[data-auto="product-tile"], .product-list--list-item, [class*="product-tile"]'
+        )
+      ).slice(0, 3);
 
-    if (!results || results.length === 0) {
-      results = ERROR_RESULT;
-    } else {
-      results = results.slice(0, 3);
-    }
+      return cards.map((card) => {
+        // Name
+        const nameEl =
+          card.querySelector('.product-details--content .name') ||
+          card.querySelector('[class*="titleLink"]') ||
+          card.querySelector('a[href*="/products/"] span') ||
+          card.querySelector('h3');
+        const name = nameEl ? nameEl.textContent.trim() : null;
 
-    // Cache the first (best) result
-    const toCache = results[0];
-    if (!toCache.error) {
+        // Price (look for €X.XX pattern)
+        let priceText = null;
+        const priceEl =
+          card.querySelector('.price-per-sellable-unit .value') ||
+          card.querySelector('.beans-price__text') ||
+          card.querySelector('[class*="price-control-wrapper"] p') ||
+          card.querySelector('[class*="price"]');
+        if (priceEl) priceText = priceEl.textContent.trim();
+
+        const priceMatch = priceText
+          ? priceText.replace(/,/g, '').match(/[\d]+\.?\d*/)
+          : null;
+        const price = priceMatch ? parseFloat(priceMatch[0]) : null;
+
+        // Price per unit
+        const ppuEl =
+          card.querySelector('.price-per-quantity-weight') ||
+          card.querySelector('[class*="subtext"]') ||
+          card.querySelector('[class*="price-per"]');
+        const price_per_unit = ppuEl ? ppuEl.textContent.trim() : null;
+
+        // URL
+        const linkEl = card.querySelector('a[href*="/products/"]');
+        const href = linkEl ? linkEl.getAttribute('href') : null;
+        const product_url = href
+          ? href.startsWith('http')
+            ? href
+            : `https://www.tesco.ie${href}`
+          : null;
+
+        return {
+          store: 'tesco',
+          price,
+          price_per_unit,
+          product_url,
+          store_product_name: name,
+        };
+      });
+    });
+
+    // Filter out empty results
+    const valid = (results || []).filter((r) => r.price != null || r.store_product_name);
+    const finalResults = valid.length > 0 ? valid : ERROR_RESULT;
+
+    const toCache = finalResults[0];
+    if (!toCache.error && toCache.price != null) {
       setCache(query, 'tesco', toCache);
     }
 
-    return results;
+    return finalResults;
   } catch (err) {
     console.error(`[tesco] Error searching for "${query}":`, err.message);
     return ERROR_RESULT;
+  } finally {
+    if (browser) {
+      await browser.close().catch((e) =>
+        console.warn('[tesco] Failed to close browser:', e.message)
+      );
+    }
   }
 }

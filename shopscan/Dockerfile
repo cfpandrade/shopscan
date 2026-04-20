@@ -15,7 +15,22 @@ RUN npm install --production
 
 FROM ${BUILD_FROM}
 
-RUN apk add --no-cache nginx
+# Chromium + nginx + fonts needed for Playwright scraping
+RUN apk add --no-cache \
+    nginx \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    && rm -rf /var/cache/apk/*
+
+ENV PUPPETEER_SKIP_DOWNLOAD=true \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    CHROMIUM_PATH=/usr/bin/chromium-browser
 
 # Backend
 COPY --from=backend-builder /build/node_modules /app/backend/node_modules

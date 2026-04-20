@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import PriceCard from './PriceCard'
+import ImageModal from './ImageModal'
 
 export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices }) {
   const touchStartX = useRef(null)
@@ -7,6 +8,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   const [swiping, setSwiping] = useState(false)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+  const [imageOpen, setImageOpen] = useState(false)
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX
@@ -90,12 +92,18 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           {/* Left: image */}
           <div className="flex-shrink-0 flex flex-col items-center gap-2">
             {item.image_url ? (
-              <img
-                src={item.image_url}
-                alt={item.name}
-                className="w-20 h-20 rounded-xl object-contain bg-slate-700 border border-slate-600"
-                onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling?.style?.removeProperty('display') }}
-              />
+              <button
+                onClick={() => setImageOpen(true)}
+                className="w-20 h-20 rounded-xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
+                aria-label="View larger image"
+              >
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className="w-full h-full object-contain"
+                  onError={e => { e.currentTarget.style.display = 'none' }}
+                />
+              </button>
             ) : (
               <div className="w-20 h-20 rounded-xl bg-slate-700 border border-slate-600 flex items-center justify-center text-3xl">
                 {placeholderEmoji}
@@ -162,6 +170,14 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           </div>
         </div>
       </div>
+
+      {imageOpen && item.image_url && (
+        <ImageModal
+          src={item.image_url}
+          alt={item.name}
+          onClose={() => setImageOpen(false)}
+        />
+      )}
     </div>
   )
 }
