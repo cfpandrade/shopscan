@@ -1,5 +1,6 @@
 name: "ShopScan IE"
-version: "1.0.2"
+version: "1.0.3"
+image: "ghcr.io/cfpandrade/shopscan/{arch}"
 slug: "shopscan"
 description: "Shopping list with Tesco IE & Dunnes Stores price comparison"
 url: "https://github.com/cfpandrade/shopscan"
