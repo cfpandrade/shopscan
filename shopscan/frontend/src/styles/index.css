@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 font-sans;
+  }
+}
+
+@layer utilities {
+  .price-best {
+    @apply ring-2 ring-green-500 bg-green-950;
+  }
+}

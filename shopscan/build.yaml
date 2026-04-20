@@ -1,0 +1,13 @@
+build_from:
+  aarch64: "ghcr.io/hassio-addons/base:14.3.3"
+  amd64: "ghcr.io/hassio-addons/base:14.3.3"
+  armhf: "ghcr.io/hassio-addons/base:14.3.3"
+  armv7: "ghcr.io/hassio-addons/base:14.3.3"
+squash: false
+args:
+  TEMPIO_VERSION: "2021.09.0"
+labels:
+  io.hass.name: "ShopScan IE"
+  io.hass.description: "Shopping list with Irish supermarket price comparison"
+  io.hass.type: "addon"
+  io.hass.version: "{version}"

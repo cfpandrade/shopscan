@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bashio
+bashio::log.info "Starting ShopScan backend..."
+
+export NODE_ENV=production
+export PORT=3001
+export DB_PATH=/data/shopscan.db
+
+cd /app/backend
+exec node src/index.js

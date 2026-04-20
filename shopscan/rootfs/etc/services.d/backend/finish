@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv bashio
+bashio::log.warning "Backend service exited with code ${1}"

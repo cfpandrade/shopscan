@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv bashio
+bashio::log.warning "nginx service exited"
