@@ -8,6 +8,8 @@ RUN npm run build
 
 FROM node:20-alpine AS backend-builder
 WORKDIR /build
+# build tools needed to compile better-sqlite3 native module
+RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
 RUN npm ci --production
 
@@ -32,6 +34,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true \
 
 # Copy built artifacts
 COPY --from=backend-builder /build/node_modules /app/backend/node_modules
+COPY backend/package.json /app/backend/package.json
 COPY backend/src /app/backend/src
 COPY --from=frontend-builder /build/dist /app/frontend
 
