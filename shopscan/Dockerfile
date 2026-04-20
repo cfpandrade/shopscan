@@ -3,7 +3,7 @@ ARG BUILD_FROM=node:20-alpine
 FROM node:20-alpine AS frontend-builder
 WORKDIR /build
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
@@ -11,7 +11,7 @@ FROM node:20-alpine AS backend-builder
 WORKDIR /build
 RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
-RUN npm ci --production
+RUN npm install --production
 
 FROM ${BUILD_FROM}
 
