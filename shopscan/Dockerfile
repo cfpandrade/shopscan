@@ -1,4 +1,5 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=node:20-alpine
+
 FROM node:20-alpine AS frontend-builder
 WORKDIR /build
 COPY frontend/package*.json ./
@@ -8,42 +9,28 @@ RUN npm run build
 
 FROM node:20-alpine AS backend-builder
 WORKDIR /build
-# build tools needed to compile better-sqlite3 native module
 RUN apk add --no-cache python3 make g++
 COPY backend/package*.json ./
 RUN npm ci --production
 
 FROM ${BUILD_FROM}
 
-# Install Node.js + Chromium + nginx
-RUN apk add --no-cache \
-    nodejs \
-    npm \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    nginx \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache nginx
 
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
-    CHROMIUM_FLAGS="--no-sandbox --disable-dev-shm-usage --headless"
-
-# Copy built artifacts
+# Backend
 COPY --from=backend-builder /build/node_modules /app/backend/node_modules
 COPY backend/package.json /app/backend/package.json
 COPY backend/src /app/backend/src
+
+# Frontend
 COPY --from=frontend-builder /build/dist /app/frontend
 
-# S6 + nginx configs
-COPY rootfs/ /
+# nginx config
+COPY rootfs/etc/nginx/http.d/default.conf /etc/nginx/http.d/default.conf
 
-RUN chmod a+x /etc/services.d/nginx/run \
-    /etc/services.d/nginx/finish \
-    /etc/services.d/backend/run \
-    /etc/services.d/backend/finish
+# Startup script
+COPY run.sh /run.sh
+RUN chmod +x /run.sh
 
 EXPOSE 8099
+CMD ["/run.sh"]
