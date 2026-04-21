@@ -38,7 +38,7 @@ const FILTERS = [
 ]
 
 export default function ShoppingList() {
-  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, forceRefreshItem, refreshAllPrices, refreshStatus, refetch } = useShoppingList()
+  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, forceRefreshItem, pinProduct, refreshAllPrices, refreshStatus, refetch } = useShoppingList()
   const [addOpen, setAddOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storeFilter, setStoreFilter] = useState('all')
@@ -264,6 +264,7 @@ export default function ShoppingList() {
                   onQuantityChange={(id, qty) => updateItem(id, { quantity: qty })}
                   onRefreshPrices={refreshPrices}
                   onForceRefresh={forceRefreshItem}
+                  onPinProduct={pinProduct}
                   onEditItem={updateItem} />
               ))
             )}

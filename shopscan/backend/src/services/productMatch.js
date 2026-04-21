@@ -148,6 +148,17 @@ function getNameCoverage(item, result) {
   return matches / itemTokens.length;
 }
 
+function getNameOnlyCoverage(item, result) {
+  const nameTokens = uniqueTokens([item?.product_name, item?.custom_name, item?.name]);
+  const resultTokens = new Set(uniqueTokens([result?.store_product_name]));
+  if (nameTokens.length === 0) return 0;
+  let matches = 0;
+  for (const token of nameTokens) {
+    if (resultTokens.has(token)) matches += 1;
+  }
+  return matches / nameTokens.length;
+}
+
 function hasBrandMismatch(item, result) {
   const brandTokens = uniqueTokens([item?.brand]);
   if (brandTokens.length === 0) return false;
@@ -161,14 +172,14 @@ export function assessStoreMatch(item, result) {
   const itemSize = parseItemSize(item);
   const storeSize = parseStoreSize(result);
   const comparablePrice = getComparablePrice(result);
-  const nameCoverage = getNameCoverage(item, result);
+  const nameCoverage = Math.max(getNameCoverage(item, result), getNameOnlyCoverage(item, result));
   const brandMismatch = hasBrandMismatch(item, result);
 
   let matchStatus = 'close';
   let matchLabel = 'Close match';
   let needsReview = false;
 
-  if (nameCoverage < 0.45 || brandMismatch) {
+  if (nameCoverage < 0.4) {
     matchStatus = 'mismatch';
     matchLabel = 'Needs review';
     needsReview = true;
@@ -177,20 +188,20 @@ export function assessStoreMatch(item, result) {
   if (itemSize && storeSize && itemSize.dimension === storeSize.dimension) {
     const ratio = storeSize.baseAmount / itemSize.baseAmount;
 
-    if (ratio >= 0.95 && ratio <= 1.05 && !brandMismatch && nameCoverage >= 0.6) {
+    if (ratio >= 0.95 && ratio <= 1.05 && nameCoverage >= 0.55) {
       matchStatus = 'exact';
       matchLabel = 'Exact match';
       needsReview = false;
-    } else if (comparablePrice && nameCoverage >= 0.6 && !brandMismatch) {
+    } else if (comparablePrice && nameCoverage >= 0.55) {
       matchStatus = 'size_adjusted';
       matchLabel = `Compared by €/${comparablePrice.standardLabel}`;
       needsReview = false;
-    } else {
+    } else if (nameCoverage < 0.55) {
       matchStatus = 'mismatch';
       matchLabel = 'Needs review';
       needsReview = true;
     }
-  } else if (!itemSize && !brandMismatch && nameCoverage >= 0.7) {
+  } else if (!itemSize && nameCoverage >= 0.6) {
     matchStatus = 'close';
     matchLabel = 'Close match';
     needsReview = false;

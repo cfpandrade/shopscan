@@ -1,6 +1,10 @@
 import { searchTesco } from './tesco.js';
 import { searchDunnes } from './dunnes.js';
 import { buildStoreSearchQueries } from './searchQueries.js';
+import { extractTescoProductFromHtml, extractDunnesProductFromHtml } from './storeParsing.js';
+import { fetchHtmlWithBrowserFingerprint } from './htmlFetch.js';
+import { setCache } from '../cache.js';
+import { getPrimarySearchQuery } from './searchQueries.js';
 
 const STORE_TIMEOUT_MS = Number(process.env.PRICE_FETCH_TIMEOUT_MS || 12000);
 
@@ -56,7 +60,32 @@ async function searchStoreAcrossQueries(store, searchFn, input, options = {}) {
   return bestNonPriceResult || timeoutResult(store);
 }
 
+export async function fetchStoreByUrl(store, item, url, options = {}) {
+  const { forceRefresh = false } = options;
+  const cacheKey = getPrimarySearchQuery(item) || url;
+
+  const html = await fetchHtmlWithBrowserFingerprint(store, url);
+  if (!html) return [{ store, price: null, error: 'unavailable' }];
+
+  const result = store === 'tesco'
+    ? extractTescoProductFromHtml(html, url)
+    : extractDunnesProductFromHtml(html, url);
+
+  if (!result) return [{ store, price: null, error: 'unavailable' }];
+
+  if (result.price != null || result.store_product_name) {
+    setCache(cacheKey, store, result);
+  }
+
+  return [result];
+}
+
 export async function searchStorePrices(store, input, options = {}) {
+  const customUrl = store === 'tesco' ? input?.custom_tesco_url : input?.custom_dunnes_url;
+  if (customUrl && typeof input === 'object') {
+    return fetchStoreByUrl(store, input, customUrl, options);
+  }
+
   if (store === 'tesco') {
     return searchStoreAcrossQueries('tesco', searchTesco, input, options);
   }
