@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.14] - 2026-04-21
+
+### Changed
+
+- Made cached prices permanent for normal reads so they stay available in the database until a refresh updates them.
+- Reworked `Refresh all prices` to refresh by supermarket in sequence, updating Tesco first and then Dunnes while reusing duplicate search results across matching items.
+
 ## [1.0.13] - 2026-04-21
 
 ### Added

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
 import { lookupBarcode } from '../services/openFoodFacts.js';
-import { fetchStorePrices } from '../services/storePrices.js';
+import { fetchStorePrices, searchStorePrices } from '../services/storePrices.js';
 import {
   buildSearchQueries,
   buildStoreSearchQueries,
@@ -91,6 +91,48 @@ function formatItem(row) {
     checked_at: row.checked_at || null,
     search_query: getPrimarySearchQuery(row),
     prices,
+  };
+}
+
+function getRefreshableListItems() {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT sl.*, p.name AS product_name, p.brand, p.description
+       FROM shopping_list sl
+       LEFT JOIN products p ON sl.product_barcode = p.barcode
+       WHERE sl.checked = 0
+       ORDER BY sl.created_at DESC`
+    )
+    .all();
+}
+
+function buildRefreshEntry(item) {
+  const primarySearchQuery = getPrimarySearchQuery(item);
+  const searchQueries = buildSearchQueries(item);
+
+  if (!primarySearchQuery || searchQueries.length === 0) {
+    return {
+      item,
+      primarySearchQuery,
+      searchQueries,
+      skipReason: 'No searchable name for this item',
+      storeQueries: {
+        tesco: [],
+        dunnes: [],
+      },
+    };
+  }
+
+  return {
+    item,
+    primarySearchQuery,
+    searchQueries,
+    skipReason: null,
+    storeQueries: {
+      tesco: buildStoreSearchQueries(item, 'tesco'),
+      dunnes: buildStoreSearchQueries(item, 'dunnes'),
+    },
   };
 }
 
@@ -287,7 +329,7 @@ router.post('/:id/refresh-prices', async (req, res) => {
       return res.status(400).json({ error: 'No searchable name for this item' });
     }
 
-    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item);
+    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item, { forceRefresh: true });
 
     res.json({
       id: item.id,
@@ -307,43 +349,65 @@ router.post('/:id/refresh-prices', async (req, res) => {
 // POST /api/list/refresh-prices — re-fetch prices for all unchecked items
 router.post('/refresh-prices', async (req, res) => {
   try {
-    const db = getDb();
-    const items = db
-      .prepare(
-        `SELECT sl.*, p.name AS product_name, p.brand, p.description
-         FROM shopping_list sl
-         LEFT JOIN products p ON sl.product_barcode = p.barcode
-         WHERE sl.checked = 0
-         ORDER BY sl.created_at DESC`
-      )
-      .all();
-
+    const entries = getRefreshableListItems().map(buildRefreshEntry);
     const refreshed = [];
     const skipped = [];
+    const refreshedById = new Map();
+    const resultsByStoreKey = {
+      tesco: new Map(),
+      dunnes: new Map(),
+    };
 
-    for (const item of items) {
-      const primarySearchQuery = getPrimarySearchQuery(item);
-      const searchQueries = buildSearchQueries(item);
-
-      if (!primarySearchQuery || searchQueries.length === 0) {
-        skipped.push({ id: item.id, reason: 'No searchable name for this item' });
+    for (const entry of entries) {
+      if (entry.skipReason) {
+        skipped.push({ id: entry.item.id, reason: entry.skipReason });
         continue;
       }
 
-      const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item);
-
-      refreshed.push({
-        id: item.id,
-        search_query: primarySearchQuery,
-        attempted_queries: searchQueries,
+      refreshedById.set(entry.item.id, {
+        id: entry.item.id,
+        search_query: entry.primarySearchQuery,
+        attempted_queries: entry.searchQueries,
         prices: {
-          tesco: tescoResults,
-          dunnes: dunnesResults,
+          tesco: null,
+          dunnes: null,
         },
       });
     }
 
+    for (const store of ['tesco', 'dunnes']) {
+      for (const entry of entries) {
+        if (entry.skipReason) continue;
+
+        const storeQueries = entry.storeQueries?.[store] || [];
+        if (storeQueries.length === 0) continue;
+
+        const queryKey = storeQueries.join(' || ');
+        const existingResults = resultsByStoreKey[store].get(queryKey);
+        const refreshedItem = refreshedById.get(entry.item.id);
+
+        if (!refreshedItem) continue;
+
+        if (existingResults) {
+          refreshedItem.prices[store] = existingResults;
+          continue;
+        }
+
+        const storeResults = await searchStorePrices(store, entry.item, { forceRefresh: true });
+        resultsByStoreKey[store].set(queryKey, storeResults);
+        refreshedItem.prices[store] = storeResults;
+      }
+    }
+
+    refreshed.push(
+      ...entries
+        .filter((entry) => !entry.skipReason)
+        .map((entry) => refreshedById.get(entry.item.id))
+        .filter(Boolean)
+    );
+
     res.json({
+      refresh_order: ['tesco', 'dunnes'],
       refreshed_count: refreshed.length,
       skipped_count: skipped.length,
       refreshed,

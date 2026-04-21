@@ -37,12 +37,12 @@ function hasPriceResult(results) {
   );
 }
 
-async function searchStoreAcrossQueries(store, searchFn, input) {
+async function searchStoreAcrossQueries(store, searchFn, input, options = {}) {
   const queries = Array.isArray(input) ? input : buildStoreSearchQueries(input, store);
   let bestNonPriceResult = null;
 
   for (const query of queries) {
-    const results = await withTimeout(searchFn(query), store);
+    const results = await withTimeout(searchFn(query, options), store);
 
     if (hasPriceResult(results)) {
       return results;
@@ -56,10 +56,22 @@ async function searchStoreAcrossQueries(store, searchFn, input) {
   return bestNonPriceResult || timeoutResult(store);
 }
 
-export async function fetchStorePrices(input) {
+export async function searchStorePrices(store, input, options = {}) {
+  if (store === 'tesco') {
+    return searchStoreAcrossQueries('tesco', searchTesco, input, options);
+  }
+
+  if (store === 'dunnes') {
+    return searchStoreAcrossQueries('dunnes', searchDunnes, input, options);
+  }
+
+  throw new Error(`Unsupported store: ${store}`);
+}
+
+export async function fetchStorePrices(input, options = {}) {
   const [tesco, dunnes] = await Promise.all([
-    searchStoreAcrossQueries('tesco', searchTesco, input),
-    searchStoreAcrossQueries('dunnes', searchDunnes, input),
+    searchStorePrices('tesco', input, options),
+    searchStorePrices('dunnes', input, options),
   ]);
 
   return { tesco, dunnes };

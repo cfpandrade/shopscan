@@ -42,8 +42,9 @@ async function fetchTescoHtml(query) {
  * Searches Tesco IE for the given query using a headless browser.
  * Uses Playwright to bypass the Cloudflare 403 that blocks plain fetch().
  */
-export async function searchTesco(query) {
-  const cached = getCached(query, 'tesco');
+export async function searchTesco(query, options = {}) {
+  const { forceRefresh = false } = options;
+  const cached = !forceRefresh ? getCached(query, 'tesco') : null;
   if (cached) {
     return [
       {

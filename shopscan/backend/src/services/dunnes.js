@@ -45,9 +45,10 @@ async function fetchDunnesHtml(query) {
  * @param {string} query
  * @returns {Promise<Array>}
  */
-export async function searchDunnes(query) {
+export async function searchDunnes(query, options = {}) {
+  const { forceRefresh = false } = options;
   // Check cache first
-  const cached = getCached(query, 'dunnes');
+  const cached = !forceRefresh ? getCached(query, 'dunnes') : null;
   if (cached) {
     return [
       {

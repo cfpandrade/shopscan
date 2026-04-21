@@ -3,7 +3,8 @@ import { getDb } from './db.js';
 const DEFAULT_CACHE_TTL_HOURS = Number(process.env.PRICE_CACHE_TTL_HOURS || 24);
 
 /**
- * Returns a cached price row if it exists and has not expired, otherwise null.
+ * Returns the latest cached price row for a query/store pair.
+ * Cached values remain available until an explicit refresh replaces them.
  * @param {string} searchQuery
  * @param {string} store
  * @returns {object|null}
@@ -15,7 +16,6 @@ export function getCached(searchQuery, store) {
       `SELECT search_query, store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at, expires_at
        FROM price_cache
        WHERE search_query = ? AND store = ?
-         AND expires_at > datetime('now')
        ORDER BY fetched_at DESC
        LIMIT 1`
     )
@@ -62,7 +62,7 @@ export function getLatestCachedByQueries(searchQueries, store) {
 
 /**
  * Inserts or replaces the cache entry for the given query/store pair.
- * Expiry is set to 1 hour from now.
+ * Expiry is kept only as a freshness marker; cached values remain readable until replaced.
  * @param {string} searchQuery
  * @param {string} store
  * @param {object} data  - { price, price_per_unit, product_url, store_product_name, image_url }
