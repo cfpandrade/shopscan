@@ -37,12 +37,71 @@ const FILTERS = [
   { id: 'dunnes', label: 'Dunnes', Logo: DunnesLogo },
 ]
 
+function fmt(price) {
+  return price != null ? `€${Number(price).toFixed(2)}` : null
+}
+
+function generateShareText(items) {
+  const active = items.filter(i => !i.checked)
+  if (active.length === 0) return 'ShopScan IE — list is empty'
+
+  const tesco  = active.filter(i => {
+    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
+    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
+    if (t == null && d == null) return false
+    if (d == null) return true
+    if (t == null) return false
+    return Number(t) <= Number(d)
+  })
+  const dunnes = active.filter(i => {
+    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
+    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
+    if (t == null && d == null) return false
+    if (t == null) return true
+    if (d == null) return false
+    return Number(d) < Number(t)
+  })
+  const noprice = active.filter(i => {
+    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
+    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
+    return t == null && d == null
+  })
+
+  const lines = ['🛒 ShopScan IE', '']
+  const fmtItem = (item, store) => {
+    const p = item.prices?.[store]
+    const price = fmt(p?.price)
+    const qty = item.quantity > 1 ? ` ×${item.quantity}` : ''
+    return `  • ${item.name}${qty}${price ? ` — ${price}` : ''}`
+  }
+  if (tesco.length > 0) {
+    lines.push('🔵 Tesco')
+    tesco.forEach(i => lines.push(fmtItem(i, 'tesco')))
+    lines.push('')
+  }
+  if (dunnes.length > 0) {
+    lines.push('🟢 Dunnes Stores')
+    dunnes.forEach(i => lines.push(fmtItem(i, 'dunnes')))
+    lines.push('')
+  }
+  if (noprice.length > 0) {
+    lines.push('❓ No price yet')
+    noprice.forEach(i => {
+      const qty = i.quantity > 1 ? ` ×${i.quantity}` : ''
+      lines.push(`  • ${i.name}${qty}`)
+    })
+    lines.push('')
+  }
+  return lines.join('\n').trimEnd()
+}
+
 export default function ShoppingList() {
   const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, forceRefreshItem, pinProduct, refreshAllPrices, refreshStatus, refetch } = useShoppingList()
   const [addOpen, setAddOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storeFilter, setStoreFilter] = useState('all')
   const [refreshingAll, setRefreshingAll] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   const touchStartY = useRef(null)
   const listRef = useRef(null)
@@ -69,6 +128,24 @@ export default function ShoppingList() {
   const visibleItems = storeFilter === 'all'
     ? items
     : items.filter(item => getBestStore(item.prices) === storeFilter)
+
+  const handleShare = async () => {
+    const text = generateShareText(items)
+    if (navigator.share) {
+      try { await navigator.share({ title: 'ShopScan IE', text }) } catch {}
+    } else {
+      await navigator.clipboard.writeText(text)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    }
+  }
+
+  const handleClearAll = () => {
+    if (items.length === 0) return
+    if (window.confirm(`Remove all ${items.length} item${items.length !== 1 ? 's' : ''} from the list?`)) {
+      items.forEach(i => deleteItem(i.id))
+    }
+  }
 
   const handleRefreshAllPrices = async () => {
     if (refreshingAll || unchecked.length === 0) return
@@ -99,6 +176,27 @@ export default function ShoppingList() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Share */}
+            {items.length > 0 && (
+              <button
+                onClick={handleShare}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-slate-300 transition-colors hover:bg-slate-600 hover:text-slate-100"
+                aria-label="Share list"
+              >
+                {shareCopied ? (
+                  <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Summary */}
             <button
               onClick={() => setSettingsOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-slate-300 transition-colors hover:bg-slate-600 hover:text-slate-100"
@@ -109,17 +207,34 @@ export default function ShoppingList() {
                   d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l.235.724a1 1 0 00.95.69h.761c.969 0 1.371 1.24.588 1.81l-.615.447a1 1 0 00-.364 1.118l.235.724c.3.921-.755 1.688-1.539 1.118l-.615-.447a1 1 0 00-1.176 0l-.615.447c-.783.57-1.838-.197-1.539-1.118l.235-.724a1 1 0 00-.364-1.118l-.615-.447c-.783-.57-.38-1.81.588-1.81h.761a1 1 0 00.95-.69l.235-.724zM12 15a3 3 0 100 6 3 3 0 000-6z" />
               </svg>
             </button>
+
             {pullRefreshing && (
               <svg className="w-4 h-4 text-green-400 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
+
+            {/* Clear checked */}
             {checked.length > 0 && (
               <button
                 onClick={() => { if (window.confirm(`Remove ${checked.length} checked item${checked.length !== 1 ? 's' : ''}?`)) clearChecked() }}
                 className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-red-900 hover:text-red-400 transition-colors"
                 aria-label="Clear checked items"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+
+            {/* Clear all */}
+            {items.length > 0 && checked.length === 0 && (
+              <button
+                onClick={handleClearAll}
+                className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 hover:bg-red-900 hover:text-red-400 transition-colors"
+                aria-label="Clear all items"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

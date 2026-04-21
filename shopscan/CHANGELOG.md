@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3] - 2026-04-21
+
+### Added
+
+- Share list button in the header: generates a plain-text summary ordered by supermarket (Tesco items, Dunnes items, then items without price) and shares via the native share sheet or copies to clipboard with a ✓ confirmation tick.
+- Clear all button in the header: removes every item from the list with a single confirmation tap. Appears when no items are checked (so it does not conflict with the clear-checked button).
+- Price history on each store row: shows "was €X" below the current price when a previous fetch had a different price. Green ↓ when price dropped, amber ↑ when it went up.
+
 ## [1.1.2] - 2026-04-21
 
 ### Added
