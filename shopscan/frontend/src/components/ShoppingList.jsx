@@ -64,12 +64,9 @@ export default function ShoppingList() {
   const unchecked = items.filter(i => !i.checked)
   const checked   = items.filter(i => i.checked)
 
-  // Apply store filter to unchecked items only
-  const filteredUnchecked = storeFilter === 'all'
-    ? unchecked
-    : unchecked.filter(item => getBestStore(item.prices) === storeFilter)
-
-  const filterCount = storeFilter !== 'all' ? filteredUnchecked.length : unchecked.length
+  const visibleItems = storeFilter === 'all'
+    ? items
+    : items.filter(item => getBestStore(item.prices) === storeFilter)
 
   const handleRefreshAllPrices = async () => {
     if (refreshingAll || unchecked.length === 0) return
@@ -129,8 +126,8 @@ export default function ShoppingList() {
             const Logo = f.Logo
             // Count items for this filter
             const count = f.id === 'all'
-              ? unchecked.length
-              : unchecked.filter(i => getBestStore(i.prices) === f.id).length
+              ? items.length
+              : items.filter(i => getBestStore(i.prices) === f.id).length
             return (
               <button
                 key={f.id}
@@ -189,14 +186,14 @@ export default function ShoppingList() {
         {storeFilter !== 'all' && (
           <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
             <span>
-              {filteredUnchecked.length === 0
+              {visibleItems.length === 0
                 ? `No items cheaper at ${storeFilter === 'tesco' ? 'Tesco' : 'Dunnes'} — try refreshing prices`
-                : `${filteredUnchecked.length} item${filteredUnchecked.length !== 1 ? 's' : ''} cheapest at ${storeFilter === 'tesco' ? 'Tesco' : 'Dunnes'}`
+                : `${visibleItems.length} item${visibleItems.length !== 1 ? 's' : ''} cheapest at ${storeFilter === 'tesco' ? 'Tesco' : 'Dunnes'}`
               }
             </span>
-            {unchecked.length - filteredUnchecked.length > 0 && (
+            {items.length - visibleItems.length > 0 && (
               <span className="text-slate-500">
-                ({unchecked.length - filteredUnchecked.length} hidden)
+                ({items.length - visibleItems.length} hidden)
               </span>
             )}
           </div>
@@ -229,7 +226,7 @@ export default function ShoppingList() {
           </div>
         ) : (
           <>
-            {filteredUnchecked.length === 0 && storeFilter !== 'all' ? (
+            {visibleItems.length === 0 && storeFilter !== 'all' ? (
               <div className="flex flex-col items-center justify-center py-16 text-center px-8">
                 <div className="mb-3 rounded-xl bg-white px-3 py-2 text-slate-950 shadow-sm">
                   {storeFilter === 'tesco'
@@ -247,30 +244,12 @@ export default function ShoppingList() {
                 </button>
               </div>
             ) : (
-              filteredUnchecked.map(item => (
+              visibleItems.map(item => (
                 <ListItem key={item.id} item={item}
                   onCheck={checkItem} onDelete={deleteItem}
                   onQuantityChange={(id, qty) => updateItem(id, { quantity: qty })}
                   onRefreshPrices={refreshPrices} />
               ))
-            )}
-
-            {checked.length > 0 && storeFilter === 'all' && (
-              <>
-                <div className="flex items-center gap-2 my-3">
-                  <div className="flex-1 h-px bg-slate-700" />
-                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Checked ({checked.length})
-                  </span>
-                  <div className="flex-1 h-px bg-slate-700" />
-                </div>
-                {checked.map(item => (
-                  <ListItem key={item.id} item={item}
-                    onCheck={checkItem} onDelete={deleteItem}
-                    onQuantityChange={(id, qty) => updateItem(id, { quantity: qty })}
-                    onRefreshPrices={refreshPrices} />
-                ))}
-              </>
             )}
 
             <div className="h-20" />

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.12] - 2026-04-21
+
+### Fixed
+
+- Kept checked items in their current position instead of moving them to a separate section at the bottom, so they remain easy to track after tapping the check button.
+
 ## [1.0.11] - 2026-04-21
 
 ### Fixed
