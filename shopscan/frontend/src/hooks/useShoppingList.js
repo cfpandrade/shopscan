@@ -110,6 +110,16 @@ export default function useShoppingList() {
     }
   }, [fetchList])
 
+  const pinProduct = useCallback(async (id, store, url) => {
+    try {
+      const res = await api.post(`/list/${id}/pin-product`, { store, url }, { timeout: 60000 })
+      setItems(prev => prev.map(item => item.id === id ? { ...item, ...res.data } : item))
+    } catch (err) {
+      setError(err.message || 'Failed to pin product')
+      throw err
+    }
+  }, [])
+
   const refreshAllPrices = useCallback(async () => {
     try {
       setRefreshStatus({
@@ -154,6 +164,7 @@ export default function useShoppingList() {
     clearChecked,
     refreshPrices,
     forceRefreshItem,
+    pinProduct,
     refreshAllPrices,
     refreshStatus,
     refetch: fetchList

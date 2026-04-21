@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.2] - 2026-04-21
+
+### Added
+
+- "Confirm match" button on Needs-review price rows: one tap marks that store's result as correct, overriding the algorithm for that item so it is included in best-store comparison and totals.
+- Pin exact product URL per store in the Edit item modal: paste the Tesco or Dunnes product URL and tap "Use this" — the app fetches price from that page directly and uses it for all future refreshes.
+- `custom_tesco_url` / `custom_dunnes_url` fields on shopping list items; when set, price refresh fetches that URL directly instead of doing a text search.
+
+### Fixed
+
+- Product matching: Dunnes often omits the brand name (e.g. "Nutella 1000g" vs "Ferrero Nutella"). Matching now uses the higher of brand+name coverage and name-only coverage, so well-known product names like Nutella or Rich Tea match correctly without "Needs review".
+- Size comparison: removed `brandMismatch` as a hard veto on exact/size-adjusted matches; thresholds lowered to 0.55 for size comparisons so 1 kg vs 1000 g resolves to exact match as expected.
+
 ## [1.1.1] - 2026-04-21
 
 ### Fixed

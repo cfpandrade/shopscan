@@ -169,3 +169,68 @@ export function extractDunnesResultsFromHtml(html, query = '') {
     query
   ).slice(0, 3);
 }
+
+export function extractTescoProductFromHtml(html, url) {
+  const $ = load(html);
+
+  // Try search-result format first (sometimes embedded in PDP)
+  const fromSearch = extractTescoResultsFromHtml(html, '');
+  if (fromSearch.length > 0 && fromSearch[0].price != null) {
+    return { ...fromSearch[0], product_url: url };
+  }
+
+  const name = cleanStoreProductName(
+    $('[data-auto="pdp-heading"], h1[class*="styled"], h1').first().text()
+  );
+  const priceText = normalise(
+    $('[class*="ddsweb-price__text"], [class*="priceText"], [itemprop="price"]').first().text() ||
+    $('[itemprop="price"]').attr('content') || ''
+  );
+  const unitPrice = normalise(
+    $('[class*="ddsweb-price__subtext"], [class*="price-control__extra-text"]').first().text()
+  );
+  const image = $('img[class*="product-image"], img[data-testid*="main"], .product-gallery img').first();
+  const price = parsePrice(priceText);
+
+  if (!price && !name) return null;
+  return {
+    store: 'tesco',
+    price,
+    price_per_unit: unitPrice || null,
+    product_url: url,
+    store_product_name: name || null,
+    image_url: image.attr('src') || image.attr('data-src') || null,
+  };
+}
+
+export function extractDunnesProductFromHtml(html, url) {
+  const $ = load(html);
+
+  // Try search-result format first
+  const fromSearch = extractDunnesResultsFromHtml(html, '');
+  if (fromSearch.length > 0 && fromSearch[0].price != null) {
+    return { ...fromSearch[0], product_url: url };
+  }
+
+  const name = cleanStoreProductName(
+    $('[data-testid$="-ProductNameTestId"], h1[class*="product"], h1').first().text()
+  );
+  const priceText = normalise(
+    $('[class*="ProductPrice--"], [data-testid*="price"]').first().text()
+  );
+  const unitPrice = normalise(
+    $('[class*="ProductUnitPrice--"], [data-testid*="unit-price"]').first().text()
+  );
+  const image = $('[data-testid*="productImage"] img, img[class*="product-image"]').first();
+  const price = parsePrice(priceText);
+
+  if (!price && !name) return null;
+  return {
+    store: 'dunnes',
+    price,
+    price_per_unit: unitPrice || null,
+    product_url: url,
+    store_product_name: name || null,
+    image_url: image.attr('src') || image.attr('data-src') || null,
+  };
+}

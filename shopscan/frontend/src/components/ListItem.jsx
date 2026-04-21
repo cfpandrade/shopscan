@@ -4,7 +4,7 @@ import ImageModal from './ImageModal'
 import StoreLinkModal from './StoreLinkModal'
 import EditItemModal from './EditItemModal'
 
-export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices, onForceRefresh, onEditItem }) {
+export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices, onForceRefresh, onPinProduct, onEditItem }) {
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const [swiping, setSwiping] = useState(false)
@@ -234,6 +234,10 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                   lastRefreshAt,
                 })
               }}
+              onConfirmMatch={(store) => {
+                const field = store === 'tesco' ? 'confirmed_tesco' : 'confirmed_dunnes'
+                onEditItem(item.id, { [field]: true })
+              }}
             />
 
             {/* Refresh */}
@@ -290,6 +294,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           item={item}
           onClose={() => setEditing(false)}
           onSave={(data) => onEditItem(item.id, data)}
+          onPinProduct={(store, url) => onPinProduct(item.id, store, url)}
         />
       )}
     </div>

@@ -38,10 +38,15 @@ function enrichStorePrice(item, row, store) {
   const mapped = mapCachedPrice(row);
   if (!mapped) return null;
 
-  return {
-    ...mapped,
-    ...(assessStoreMatch(item, mapped, store) || {}),
-  };
+  const assessment = assessStoreMatch(item, mapped, store) || {};
+  const confirmed = store === 'tesco' ? item.confirmed_tesco : item.confirmed_dunnes;
+  if (confirmed) {
+    assessment.needs_review = false;
+    assessment.match_status = 'confirmed';
+    assessment.match_label = 'Match confirmed';
+  }
+
+  return { ...mapped, ...assessment };
 }
 
 function getLatestPrices(item) {
@@ -103,6 +108,10 @@ function formatItem(row) {
     unit: row.unit,
     checked: row.checked === 1,
     notes: row.notes || null,
+    custom_tesco_url: row.custom_tesco_url || null,
+    custom_dunnes_url: row.custom_dunnes_url || null,
+    confirmed_tesco: row.confirmed_tesco === 1,
+    confirmed_dunnes: row.confirmed_dunnes === 1,
     created_at: row.created_at,
     checked_at: row.checked_at || null,
     search_query: getPrimarySearchQuery(row),
@@ -411,7 +420,7 @@ router.patch('/:id', (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
-    const { quantity, checked, notes, custom_name, custom_brand, custom_size, custom_description } = req.body;
+    const { quantity, checked, notes, custom_name, custom_brand, custom_size, custom_description, custom_tesco_url, custom_dunnes_url, confirmed_tesco, confirmed_dunnes } = req.body;
 
     const existing = db
       .prepare('SELECT * FROM shopping_list WHERE id = ?')
@@ -452,6 +461,22 @@ router.patch('/:id', (req, res) => {
     if (custom_description !== undefined) {
       updates.push('custom_description = ?');
       values.push(custom_description ? String(custom_description).trim() : null);
+    }
+    if (custom_tesco_url !== undefined) {
+      updates.push('custom_tesco_url = ?');
+      values.push(custom_tesco_url ? String(custom_tesco_url).trim() : null);
+    }
+    if (custom_dunnes_url !== undefined) {
+      updates.push('custom_dunnes_url = ?');
+      values.push(custom_dunnes_url ? String(custom_dunnes_url).trim() : null);
+    }
+    if (confirmed_tesco !== undefined) {
+      updates.push('confirmed_tesco = ?');
+      values.push(confirmed_tesco ? 1 : 0);
+    }
+    if (confirmed_dunnes !== undefined) {
+      updates.push('confirmed_dunnes = ?');
+      values.push(confirmed_dunnes ? 1 : 0);
     }
 
     if (updates.length === 0) {
@@ -625,6 +650,61 @@ router.post('/:id/force-refresh', async (req, res) => {
   } catch (err) {
     console.error(`[list POST /${req.params.id}/force-refresh]`, err);
     res.status(500).json({ error: 'Failed to force refresh item' });
+  }
+});
+
+// POST /api/list/:id/pin-product — save a specific store product URL and fetch its price
+router.post('/:id/pin-product', async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    const { store, url } = req.body;
+
+    if (!store || !url) {
+      return res.status(400).json({ error: 'store and url are required' });
+    }
+    if (!['tesco', 'dunnes'].includes(store)) {
+      return res.status(400).json({ error: 'store must be tesco or dunnes' });
+    }
+    const allowedDomains = { tesco: 'tesco.ie', dunnes: 'dunnesstoresgrocery.com' };
+    let parsedUrl;
+    try { parsedUrl = new URL(url); } catch { return res.status(400).json({ error: 'Invalid URL' }); }
+    if (!parsedUrl.hostname.endsWith(allowedDomains[store])) {
+      return res.status(400).json({ error: `URL must be from ${allowedDomains[store]}` });
+    }
+
+    const col = store === 'tesco' ? 'custom_tesco_url' : 'custom_dunnes_url';
+    db.prepare(`UPDATE shopping_list SET ${col} = ? WHERE id = ?`).run(url, id);
+
+    const item = db.prepare(
+      `SELECT sl.*, p.name AS product_name
+              , COALESCE(sl.custom_brand, p.brand) AS brand
+              , COALESCE(sl.custom_size, p.size) AS product_size
+              , COALESCE(sl.custom_description, p.description) AS description
+       FROM shopping_list sl
+       LEFT JOIN products p ON sl.product_barcode = p.barcode
+       WHERE sl.id = ?`
+    ).get(id);
+
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    await searchStorePrices(store, item, { forceRefresh: true });
+
+    const updated = db.prepare(
+      `SELECT sl.*, p.name AS product_name
+              , COALESCE(sl.custom_brand, p.brand) AS brand
+              , COALESCE(sl.custom_size, p.size) AS product_size
+              , COALESCE(sl.custom_description, p.description) AS description
+              , p.image_url, p.category
+       FROM shopping_list sl
+       LEFT JOIN products p ON sl.product_barcode = p.barcode
+       WHERE sl.id = ?`
+    ).get(id);
+
+    res.json(formatItem(updated));
+  } catch (err) {
+    console.error(`[list POST /${req.params.id}/pin-product]`, err);
+    res.status(500).json({ error: 'Failed to pin product' });
   }
 });
 

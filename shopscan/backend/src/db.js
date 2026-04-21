@@ -69,6 +69,10 @@ export function initDb() {
   ensureColumn('shopping_list', 'custom_brand', 'TEXT');
   ensureColumn('shopping_list', 'custom_size', 'TEXT');
   ensureColumn('shopping_list', 'custom_description', 'TEXT');
+  ensureColumn('shopping_list', 'custom_tesco_url', 'TEXT');
+  ensureColumn('shopping_list', 'custom_dunnes_url', 'TEXT');
+  ensureColumn('shopping_list', 'confirmed_tesco', 'INTEGER DEFAULT 0');
+  ensureColumn('shopping_list', 'confirmed_dunnes', 'INTEGER DEFAULT 0');
 
   console.log(`Database initialised at ${DB_PATH}`);
   return db;
