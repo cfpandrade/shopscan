@@ -284,6 +284,11 @@ export default function AddItemModal({ onClose, onAdd }) {
                           {product.brand && (
                             <p className="text-xs text-slate-400 truncate">{product.brand}</p>
                           )}
+                          {(product.description || product.barcode) && (
+                            <p className="text-xs text-slate-500 truncate">
+                              {[product.description, product.barcode].filter(Boolean).join(' · ')}
+                            </p>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -310,6 +315,11 @@ export default function AddItemModal({ onClose, onAdd }) {
                       <p className="text-sm font-semibold text-slate-100 truncate">{selectedProduct.name}</p>
                       {selectedProduct.brand && (
                         <p className="text-xs text-slate-400 truncate">{selectedProduct.brand}</p>
+                      )}
+                      {(selectedProduct.description || selectedProduct.barcode) && (
+                        <p className="text-xs text-slate-500 truncate">
+                          {[selectedProduct.description, selectedProduct.barcode].filter(Boolean).join(' · ')}
+                        </p>
                       )}
                     </div>
                     <button

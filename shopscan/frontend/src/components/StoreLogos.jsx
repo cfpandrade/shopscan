@@ -29,31 +29,28 @@ export function TescoLogo({ className = '' }) {
 }
 
 export function DunnesLogo({ className = '' }) {
-  // Dunnes Stores: red background, white "Dunnes" text with "STORES" smaller below
+  // Dunnes Stores: monochrome wordmark used on a light chip
   return (
-    <svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Dunnes Stores">
-      <rect width="100" height="40" rx="3" fill="#D81E1E" />
+    <svg viewBox="0 0 180 40" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Dunnes Stores">
       <text
-        x="50"
-        y="22"
-        textAnchor="middle"
-        fill="#ffffff"
-        fontSize="16"
-        fontWeight="700"
+        x="0"
+        y="24"
+        fill="currentColor"
+        fontSize="27"
+        fontWeight="800"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
-        fontStyle="italic"
+        letterSpacing="1.2"
       >
-        Dunnes
+        DUNNES
       </text>
       <text
-        x="50"
-        y="33"
-        textAnchor="middle"
-        fill="#ffffff"
-        fontSize="7"
-        fontWeight="600"
-        fontFamily="Arial, sans-serif"
-        letterSpacing="3"
+        x="105"
+        y="38"
+        fill="currentColor"
+        fontSize="15"
+        fontWeight="700"
+        fontFamily="'Helvetica Neue', Arial, sans-serif"
+        letterSpacing="2.4"
       >
         STORES
       </text>

@@ -46,7 +46,7 @@ Environment variables set at runtime:
 | `NODE_ENV` | `production` | Node.js environment |
 | `PORT` | `3001` | Backend API port (internal) |
 | `DB_PATH` | `/data/shopscan.db` | SQLite database path |
-| `PUPPETEER_EXECUTABLE_PATH` | `/usr/bin/chromium-browser` | Chromium for scraping |
+| `PUPPETEER_EXECUTABLE_PATH` | `/usr/bin/chromium` | Chromium for scraping |
 
 ## HA REST Sensor (Optional)
 

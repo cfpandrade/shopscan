@@ -45,6 +45,9 @@ export default function PriceCard({ prices, loading }) {
         const isBest = best === key
         const price = formatPrice(data?.price)
         const perUnit = data?.price_per_unit
+        const logoWrapClass = key === 'dunnes'
+          ? 'rounded-md bg-white px-2 py-1 text-slate-950'
+          : ''
 
         return (
           <div
@@ -54,7 +57,9 @@ export default function PriceCard({ prices, loading }) {
             }`}
           >
             {/* Store logo */}
-            <Logo className="h-7 w-auto flex-shrink-0" />
+            <div className={logoWrapClass}>
+              <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-5' : 'h-7'}`} />
+            </div>
 
             {/* Price */}
             <span className={`text-sm font-bold flex-shrink-0 ${isBest ? 'text-green-400' : 'text-slate-100'}`}>

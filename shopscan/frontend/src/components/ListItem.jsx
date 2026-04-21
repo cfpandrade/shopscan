@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PriceCard from './PriceCard'
 import ImageModal from './ImageModal'
 
@@ -9,8 +9,17 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [imageOpen, setImageOpen] = useState(false)
+  const canSwipeToDelete = !item.checked
+
+  useEffect(() => {
+    if (item.checked) {
+      setSwipeOffset(0)
+      setSwiping(false)
+    }
+  }, [item.checked])
 
   const handleTouchStart = (e) => {
+    if (!canSwipeToDelete) return
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     setSwiping(false)
@@ -18,6 +27,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   }
 
   const handleTouchMove = (e) => {
+    if (!canSwipeToDelete) return
     if (touchStartX.current === null) return
     const dx = e.touches[0].clientX - touchStartX.current
     const dy = Math.abs(e.touches[0].clientY - touchStartY.current)
@@ -29,6 +39,14 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   }
 
   const handleTouchEnd = () => {
+    if (!canSwipeToDelete) {
+      touchStartX.current = null
+      touchStartY.current = null
+      setSwipeOffset(0)
+      setSwiping(false)
+      return
+    }
+
     if (swipeOffset < -80) {
       setSwipeOffset(-120)
       if (window.confirm(`Remove "${item.name}" from list?`)) {
@@ -71,18 +89,29 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   })()
 
   return (
-    <div className="relative overflow-hidden rounded-xl mb-2">
+    <div className="relative overflow-hidden rounded-2xl mb-3">
       {/* Delete hint behind card */}
-      <div className="absolute inset-y-0 right-0 flex items-center justify-end pr-5 bg-red-600 rounded-xl">
-        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      </div>
+      {canSwipeToDelete && (
+        <div
+          className={`absolute inset-y-0 right-0 w-24 flex items-center justify-center bg-red-600/90 rounded-r-2xl transition-opacity ${
+            swipeOffset < 0 ? 'opacity-100' : 'opacity-0'
+          }`}
+          aria-hidden="true"
+        >
+          <div className="rounded-2xl bg-red-500/40 p-3">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* Card */}
       <div
-        className={`relative bg-slate-800 rounded-xl p-3 transition-transform select-none ${item.checked ? 'opacity-50' : ''}`}
+        className={`relative bg-slate-800 border border-slate-700/80 rounded-2xl p-3 shadow-sm transition-transform select-none ${
+          item.checked ? 'opacity-60' : ''
+        }`}
         style={{ transform: `translateX(${swipeOffset}px)`, transition: swiping ? 'none' : 'transform 0.2s ease' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -94,7 +123,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             {item.image_url ? (
               <button
                 onClick={() => setImageOpen(true)}
-                className="w-20 h-20 rounded-xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
+                className="w-20 h-20 rounded-2xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
                 aria-label="View larger image"
               >
                 <img
@@ -105,7 +134,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                 />
               </button>
             ) : (
-              <div className="w-20 h-20 rounded-xl bg-slate-700 border border-slate-600 flex items-center justify-center text-3xl">
+              <div className="w-20 h-20 rounded-2xl bg-slate-700 border border-slate-600 flex items-center justify-center text-3xl">
                 {placeholderEmoji}
               </div>
             )}
@@ -129,7 +158,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           {/* Right: name + quantity + prices */}
           <div className="flex-1 min-w-0">
             {/* Name row with quantity */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1 min-w-0">
                 <p className={`font-semibold text-sm leading-tight text-slate-100 ${item.checked ? 'line-through text-slate-400' : ''}`}>
                   {item.name}
@@ -140,14 +169,14 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
               </div>
 
               {/* Quantity */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-start">
                 <button onClick={decrementQty} disabled={item.quantity <= 1}
-                  className="w-7 h-7 rounded-lg bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
+                  className="w-8 h-8 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
                   −
                 </button>
                 <span className="w-6 text-center text-sm font-medium text-slate-200">{item.quantity}</span>
                 <button onClick={incrementQty} disabled={item.quantity >= 99}
-                  className="w-7 h-7 rounded-lg bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
+                  className="w-8 h-8 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
                   +
                 </button>
               </div>

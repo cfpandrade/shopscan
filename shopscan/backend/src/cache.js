@@ -10,7 +10,8 @@ export function getCached(searchQuery, store) {
   const db = getDb();
   const row = db
     .prepare(
-      `SELECT * FROM price_cache
+      `SELECT search_query, store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at, expires_at
+       FROM price_cache
        WHERE search_query = ? AND store = ?
          AND expires_at > datetime('now')
        ORDER BY fetched_at DESC
@@ -26,7 +27,7 @@ export function getCached(searchQuery, store) {
  * Expiry is set to 1 hour from now.
  * @param {string} searchQuery
  * @param {string} store
- * @param {object} data  - { price, price_per_unit, product_url, store_product_name }
+ * @param {object} data  - { price, price_per_unit, product_url, store_product_name, image_url }
  */
 export function setCache(searchQuery, store, data) {
   const db = getDb();
@@ -38,15 +39,16 @@ export function setCache(searchQuery, store, data) {
 
   db.prepare(
     `INSERT INTO price_cache
-       (search_query, store, price, price_per_unit, product_url, store_product_name, expires_at)
+       (search_query, store, price, price_per_unit, product_url, store_product_name, image_url, expires_at)
      VALUES
-       (?, ?, ?, ?, ?, ?, datetime('now', '+1 hour'))`
+       (?, ?, ?, ?, ?, ?, ?, datetime('now', '+1 hour'))`
   ).run(
     searchQuery,
     store,
     data.price ?? null,
     data.price_per_unit ?? null,
     data.product_url ?? null,
-    data.store_product_name ?? null
+    data.store_product_name ?? null,
+    data.image_url ?? null
   );
 }

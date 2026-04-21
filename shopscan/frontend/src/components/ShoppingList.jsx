@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import useShoppingList from '../hooks/useShoppingList'
 import ListItem from './ListItem'
 import AddItemModal from './AddItemModal'
+import { TescoLogo, DunnesLogo } from './StoreLogos'
 
 function SkeletonCard() {
   return (
@@ -30,9 +31,9 @@ function getBestStore(prices) {
 }
 
 const FILTERS = [
-  { id: 'all',    label: 'All',    icon: '🛒' },
-  { id: 'tesco',  label: 'Tesco',  icon: '🔵' },
-  { id: 'dunnes', label: 'Dunnes', icon: '🔴' },
+  { id: 'all', label: 'All' },
+  { id: 'tesco', label: 'Tesco', Logo: TescoLogo },
+  { id: 'dunnes', label: 'Dunnes', Logo: DunnesLogo },
 ]
 
 export default function ShoppingList() {
@@ -110,9 +111,11 @@ export default function ShoppingList() {
         </div>
 
         {/* Store filter pills */}
-        <div className="flex gap-2 mt-3">
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
           {FILTERS.map(f => {
             const isActive = storeFilter === f.id
+            const isAll = f.id === 'all'
+            const Logo = f.Logo
             // Count items for this filter
             const count = f.id === 'all'
               ? unchecked.length
@@ -121,19 +124,31 @@ export default function ShoppingList() {
               <button
                 key={f.id}
                 onClick={() => setStoreFilter(f.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${
                   isActive
-                    ? f.id === 'tesco'  ? 'bg-blue-700 text-white'
-                    : f.id === 'dunnes' ? 'bg-red-700 text-white'
-                    : 'bg-green-700 text-white'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    ? isAll
+                      ? 'bg-green-700 text-white border-green-500'
+                      : 'bg-slate-100 text-slate-950 border-slate-200 shadow-sm'
+                    : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
                 }`}
               >
-                <span>{f.icon}</span>
-                <span>{f.label}</span>
+                {isAll ? (
+                  <>
+                    <span className={`text-base ${isActive ? '' : 'opacity-90'}`}>🛒</span>
+                    <span>{f.label}</span>
+                  </>
+                ) : (
+                  <div className={`rounded-md px-2 py-1 ${isActive ? 'bg-white text-slate-950' : 'bg-white text-slate-950/90'}`}>
+                    <Logo className={`w-auto ${f.id === 'dunnes' ? 'h-4' : 'h-5'}`} />
+                  </div>
+                )}
                 {count > 0 && (
                   <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${
-                    isActive ? 'bg-white/20' : 'bg-slate-600'
+                    isActive
+                      ? isAll
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-900/10 text-slate-900'
+                      : 'bg-slate-700 text-slate-200'
                   }`}>
                     {count}
                   </span>
@@ -189,7 +204,12 @@ export default function ShoppingList() {
           <>
             {filteredUnchecked.length === 0 && storeFilter !== 'all' ? (
               <div className="flex flex-col items-center justify-center py-16 text-center px-8">
-                <span className="text-4xl mb-3">{storeFilter === 'tesco' ? '🔵' : '🔴'}</span>
+                <div className="mb-3 rounded-xl bg-white px-3 py-2 text-slate-950 shadow-sm">
+                  {storeFilter === 'tesco'
+                    ? <TescoLogo className="h-7 w-auto" />
+                    : <DunnesLogo className="h-5 w-auto" />
+                  }
+                </div>
                 <p className="text-slate-400 text-sm">
                   No items are cheapest at {storeFilter === 'tesco' ? 'Tesco' : 'Dunnes Stores'} yet.
                 </p>

@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { searchTesco } from '../services/tesco.js';
-import { searchDunnes } from '../services/dunnes.js';
+import { fetchStorePrices } from '../services/storePrices.js';
 
 const router = Router();
 
@@ -13,10 +12,7 @@ router.get('/:query', async (req, res) => {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    const [tescoResults, dunnesResults] = await Promise.all([
-      searchTesco(query),
-      searchDunnes(query),
-    ]);
+    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(query);
 
     res.json({
       query,
@@ -46,10 +42,7 @@ router.post('/refresh', async (req, res) => {
       limited.map(async (query) => {
         if (!query || typeof query !== 'string') return;
 
-        const [tescoResults, dunnesResults] = await Promise.all([
-          searchTesco(query),
-          searchDunnes(query),
-        ]);
+        const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(query);
 
         results[query] = {
           tesco: tescoResults,

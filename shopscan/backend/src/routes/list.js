@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
 import { lookupBarcode } from '../services/openFoodFacts.js';
-import { searchTesco } from '../services/tesco.js';
-import { searchDunnes } from '../services/dunnes.js';
+import { fetchStorePrices } from '../services/storePrices.js';
 
 const router = Router();
 
@@ -16,7 +15,7 @@ function getLatestPrices(searchQuery) {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT store, price, price_per_unit, product_url, store_product_name, fetched_at
+      `SELECT store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at
        FROM price_cache
        WHERE search_query = ?
          AND expires_at > datetime('now')
@@ -32,6 +31,7 @@ function getLatestPrices(searchQuery) {
         price_per_unit: row.price_per_unit,
         product_url: row.product_url,
         store_product_name: row.store_product_name,
+        image_url: row.image_url || null,
         fetched_at: row.fetched_at,
       };
     }
@@ -39,19 +39,56 @@ function getLatestPrices(searchQuery) {
   return prices;
 }
 
+function getBestStore(prices) {
+  const tesco = prices?.tesco?.price;
+  const dunnes = prices?.dunnes?.price;
+
+  if (tesco == null && dunnes == null) return null;
+  if (tesco == null) return 'dunnes';
+  if (dunnes == null) return 'tesco';
+
+  return Number(tesco) <= Number(dunnes) ? 'tesco' : 'dunnes';
+}
+
+function getPreferredImage(fallbackImageUrl, prices) {
+  const bestStore = getBestStore(prices);
+  const preferredOrder = [
+    bestStore,
+    bestStore === 'tesco' ? 'dunnes' : 'tesco',
+  ].filter(Boolean);
+
+  for (const store of preferredOrder) {
+    const imageUrl = prices?.[store]?.image_url;
+    if (imageUrl) return imageUrl;
+  }
+
+  return fallbackImageUrl || null;
+}
+
+function buildSearchQuery(row) {
+  if (row.custom_name) return row.custom_name;
+
+  const parts = [row.brand, row.product_name]
+    .map((value) => value?.trim())
+    .filter(Boolean);
+
+  return parts.join(' ').trim() || row.product_name || null;
+}
+
 /**
  * Formats a raw DB row into the public item shape.
  */
 function formatItem(row) {
   const name = row.product_name || row.custom_name || 'Unknown';
-  const searchQuery = row.product_name || row.custom_name || null;
+  const searchQuery = buildSearchQuery(row);
   const prices = getLatestPrices(searchQuery);
 
   return {
     id: row.id,
     name,
     brand: row.brand || null,
-    image_url: row.image_url || null,
+    description: row.description || null,
+    image_url: getPreferredImage(row.image_url, prices),
     barcode: row.product_barcode || null,
     category: row.category || null,
     quantity: row.quantity,
@@ -73,6 +110,7 @@ router.get('/', (req, res) => {
         `SELECT sl.*,
                 p.name  AS product_name,
                 p.brand,
+                p.description,
                 p.image_url,
                 p.category
          FROM shopping_list sl
@@ -126,7 +164,7 @@ router.post('/', async (req, res) => {
 
     const newItem = db
       .prepare(
-        `SELECT sl.*, p.name AS product_name, p.brand, p.image_url, p.category
+        `SELECT sl.*, p.name AS product_name, p.brand, p.description, p.image_url, p.category
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -183,7 +221,7 @@ router.patch('/:id', (req, res) => {
 
     const updated = db
       .prepare(
-        `SELECT sl.*, p.name AS product_name, p.brand, p.image_url, p.category
+        `SELECT sl.*, p.name AS product_name, p.brand, p.description, p.image_url, p.category
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -239,6 +277,7 @@ router.post('/:id/refresh-prices', async (req, res) => {
     const item = db
       .prepare(
         `SELECT sl.*, p.name AS product_name, p.brand
+                , p.description
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -249,15 +288,12 @@ router.post('/:id/refresh-prices', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    const searchQuery = item.product_name || item.custom_name;
+    const searchQuery = buildSearchQuery(item);
     if (!searchQuery) {
       return res.status(400).json({ error: 'No searchable name for this item' });
     }
 
-    const [tescoResults, dunnesResults] = await Promise.all([
-      searchTesco(searchQuery),
-      searchDunnes(searchQuery),
-    ]);
+    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(searchQuery);
 
     res.json({
       id: item.id,

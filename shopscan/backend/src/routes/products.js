@@ -42,10 +42,10 @@ router.get('/search', (req, res) => {
     const products = db
       .prepare(
         `SELECT * FROM products
-         WHERE name LIKE ? OR brand LIKE ?
+         WHERE name LIKE ? OR brand LIKE ? OR description LIKE ? OR barcode LIKE ?
          LIMIT 20`
       )
-      .all(like, like);
+      .all(like, like, like, like);
 
     res.json(products);
   } catch (err) {
@@ -57,7 +57,7 @@ router.get('/search', (req, res) => {
 // POST /api/products/manual — add a product manually
 router.post('/manual', (req, res) => {
   try {
-    const { name, brand, image_url } = req.body;
+    const { name, brand, description, image_url } = req.body;
 
     if (!name || name.trim().length === 0) {
       return res.status(400).json({ error: 'name is required' });
@@ -67,9 +67,9 @@ router.post('/manual', (req, res) => {
     const barcode = `manual_${Date.now()}`;
 
     db.prepare(
-      `INSERT INTO products (barcode, name, brand, image_url)
-       VALUES (?, ?, ?, ?)`
-    ).run(barcode, name.trim(), brand || null, image_url || null);
+      `INSERT INTO products (barcode, name, brand, description, image_url)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(barcode, name.trim(), brand || null, description || null, image_url || null);
 
     const product = db
       .prepare('SELECT * FROM products WHERE barcode = ?')

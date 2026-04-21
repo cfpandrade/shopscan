@@ -4,6 +4,15 @@ const DB_PATH = process.env.DB_PATH || '/data/shopscan.db';
 
 let db;
 
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  const exists = columns.some((item) => item.name === column);
+
+  if (!exists) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 export function initDb() {
   db = new Database(DB_PATH);
 
@@ -15,6 +24,7 @@ export function initDb() {
       barcode TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       brand TEXT,
+      description TEXT,
       image_url TEXT,
       category TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -41,12 +51,16 @@ export function initDb() {
       price_per_unit TEXT,
       product_url TEXT,
       store_product_name TEXT,
+      image_url TEXT,
       fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       expires_at DATETIME
     );
 
     CREATE INDEX IF NOT EXISTS idx_price_cache_query_store ON price_cache(search_query, store);
   `);
+
+  ensureColumn('price_cache', 'image_url', 'TEXT');
+  ensureColumn('products', 'description', 'TEXT');
 
   console.log(`Database initialised at ${DB_PATH}`);
   return db;
