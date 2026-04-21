@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.0] - 2026-04-21
+
+### Added
+
+- Edit item modal to correct name, brand, size and description for better price matching.
+- Shopping summary modal with totals for Tesco, Dunnes, and the mixed-basket saving.
+- In-app store product page popup (iframe) with an "Open outside" fallback for manual verification.
+- Bulk "Refresh all prices" with live progress, refreshing by supermarket in sequence and reusing duplicate query results.
+- Pull-to-refresh on the list by pulling down from the top.
+- Store filter pills (Tesco / Dunnes) showing item counts and highlighting the cheapest-store items.
+
+### Changed
+
+- Product matching now uses normalised tokens, size-unit conversion, and comparable unit price (€/kg, €/L) to detect exact, close, size-adjusted, or needs-review matches.
+- Best-store comparison uses the normalised unit price (`comparison_metric`) instead of raw price, and excludes needs-review results.
+- Preferred image for each list item is now the one from the cheapest store.
+- Price refresh is rate-limited to two windows per day (05:00 and 17:00 Ireland time) while still allowing manual overrides.
+- `custom_name`, `custom_brand`, `custom_size`, `custom_description` fields added to list items and editable via PATCH.
+- Price history (last 3 results per store) included in every list item response.
+- Bulk refresh deduplicates store queries across items with the same search key.
+- Single-item refresh timeout raised to 60 s; bulk refresh timeout raised to 180 s.
+- Checked items stay in place instead of moving to a separate section.
+- Cached prices are now permanent and only replaced on a successful refresh.
+
 ## [1.0.19] - 2026-04-21
 
 ### Added

@@ -109,10 +109,11 @@ export function getPriceRefreshStatus(lastFetchedAt, now = new Date()) {
 
   const lastSlot = getSlotInfo(fetchedDate);
   const currentSlot = getSlotInfo(now);
+  const canRefresh = lastSlot.slotKey !== currentSlot.slotKey;
 
   return {
-    canRefresh: lastSlot.slotKey !== currentSlot.slotKey,
-    nextRefreshAt: getNextRefreshWindow(fetchedDate),
+    canRefresh,
+    nextRefreshAt: canRefresh ? null : getNextRefreshWindow(now),
     lastFetchedAt,
     refreshWindow: PRICE_REFRESH_TIMEZONE,
   };

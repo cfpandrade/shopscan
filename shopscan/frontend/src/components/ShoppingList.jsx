@@ -23,8 +23,8 @@ function SkeletonCard() {
 
 function getBestStore(prices) {
   if (!prices) return null
-  const t = prices.tesco?.price
-  const d = prices.dunnes?.price
+  const t = prices.tesco?.needs_review ? null : (prices.tesco?.comparison_metric ?? prices.tesco?.price)
+  const d = prices.dunnes?.needs_review ? null : (prices.dunnes?.comparison_metric ?? prices.dunnes?.price)
   if (t == null && d == null) return null
   if (t == null) return 'dunnes'
   if (d == null) return 'tesco'
@@ -38,7 +38,7 @@ const FILTERS = [
 ]
 
 export default function ShoppingList() {
-  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, refreshAllPrices, refetch } = useShoppingList()
+  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, refreshAllPrices, refreshStatus, refetch } = useShoppingList()
   const [addOpen, setAddOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [storeFilter, setStoreFilter] = useState('all')
@@ -189,7 +189,9 @@ export default function ShoppingList() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              {refreshingAll ? 'Refreshing all prices...' : 'Refresh all prices'}
+              {refreshingAll
+                ? `Refreshing ${refreshStatus?.current_store || 'prices'}${refreshStatus?.current_item_name ? `: ${refreshStatus.current_item_name}` : ''} (${refreshStatus?.completed_items || 0}/${refreshStatus?.total_items || 0})`
+                : 'Refresh all prices'}
             </button>
           </div>
         )}
@@ -260,7 +262,8 @@ export default function ShoppingList() {
                 <ListItem key={item.id} item={item}
                   onCheck={checkItem} onDelete={deleteItem}
                   onQuantityChange={(id, qty) => updateItem(id, { quantity: qty })}
-                  onRefreshPrices={refreshPrices} />
+                  onRefreshPrices={refreshPrices}
+                  onEditItem={updateItem} />
               ))
             )}
 

@@ -2,6 +2,16 @@
 
 ShopScan IE is a Home Assistant addon that provides a shopping list with live price comparison across Tesco Ireland and Dunnes Stores. It runs entirely within your Home Assistant instance and is accessible via the HA sidebar.
 
+## Configuration
+
+The addon now exposes a `country` option in the Home Assistant addon configuration panel.
+
+- Default value: `Ireland`
+- Current purpose: prepare the addon for future country-specific supermarket catalogs
+- Current effect: the value is stored and passed into the container as `SHOPSCAN_COUNTRY`
+
+For now only `Ireland` is available in the selector, but this is where future options such as Spain will be added.
+
 ## Installation
 
 ### Step 1: Add the Repository
@@ -46,6 +56,7 @@ Environment variables set at runtime:
 | `NODE_ENV` | `production` | Node.js environment |
 | `PORT` | `3001` | Backend API port (internal) |
 | `DB_PATH` | `/data/shopscan.db` | SQLite database path |
+| `SHOPSCAN_COUNTRY` | `Ireland` | Country selected in the addon configuration panel |
 | `PUPPETEER_EXECUTABLE_PATH` | `/usr/bin/chromium` | Chromium for scraping |
 
 ## HA REST Sensor (Optional)
