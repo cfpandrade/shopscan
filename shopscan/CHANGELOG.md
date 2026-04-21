@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.13] - 2026-04-21
+
+### Added
+
+- Added a shopping summary button in the app header with totals for the active list, Tesco-only total, Dunnes-only total, and the savings from splitting the basket across both supermarkets.
+
 ## [1.0.12] - 2026-04-21
 
 ### Fixed

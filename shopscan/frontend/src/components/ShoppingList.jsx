@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import useShoppingList from '../hooks/useShoppingList'
 import ListItem from './ListItem'
 import AddItemModal from './AddItemModal'
+import SettingsModal from './SettingsModal'
 import { TescoLogo, DunnesLogo } from './StoreLogos'
 
 function SkeletonCard() {
@@ -39,6 +40,7 @@ const FILTERS = [
 export default function ShoppingList() {
   const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, refreshAllPrices, refetch } = useShoppingList()
   const [addOpen, setAddOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [storeFilter, setStoreFilter] = useState('all')
   const [refreshingAll, setRefreshingAll] = useState(false)
 
@@ -97,6 +99,16 @@ export default function ShoppingList() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-slate-300 transition-colors hover:bg-slate-600 hover:text-slate-100"
+              aria-label="Open shopping summary"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l.235.724a1 1 0 00.95.69h.761c.969 0 1.371 1.24.588 1.81l-.615.447a1 1 0 00-.364 1.118l.235.724c.3.921-.755 1.688-1.539 1.118l-.615-.447a1 1 0 00-1.176 0l-.615.447c-.783.57-1.838-.197-1.539-1.118l.235-.724a1 1 0 00-.364-1.118l-.615-.447c-.783-.57-.38-1.81.588-1.81h.761a1 1 0 00.95-.69l.235-.724zM12 15a3 3 0 100 6 3 3 0 000-6z" />
+              </svg>
+            </button>
             {pullRefreshing && (
               <svg className="w-4 h-4 text-green-400 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -270,6 +282,13 @@ export default function ShoppingList() {
         <AddItemModal
           onClose={() => setAddOpen(false)}
           onAdd={async (data) => { await addItem(data); setAddOpen(false) }}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          items={items}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </div>
