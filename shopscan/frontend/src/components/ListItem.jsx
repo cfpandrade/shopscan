@@ -122,19 +122,19 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex gap-4">
+        <div className="flex items-center gap-3">
           {/* Left: image */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 self-center">
             {imageSrc ? (
               <button
                 onClick={() => setImageOpen(true)}
-                className="w-28 h-28 rounded-2xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
+                className="h-28 w-28 rounded-2xl border border-slate-600 bg-slate-700 overflow-hidden active:scale-95 transition-transform"
                 aria-label="View larger image"
               >
                 <img
                   src={imageSrc}
                   alt={item.name}
-                  className="w-full h-full object-contain"
+                  className="h-full w-full object-contain object-center"
                   onError={() => {
                     if (item.fallback_image_url && imageSrc !== item.fallback_image_url) {
                       setImageSrc(item.fallback_image_url)
@@ -145,14 +145,14 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                 />
               </button>
             ) : (
-              <div className="w-28 h-28 rounded-2xl bg-slate-700 border border-slate-600 flex items-center justify-center text-4xl">
+              <div className="flex h-28 w-28 items-center justify-center rounded-2xl border border-slate-600 bg-slate-700 text-4xl">
                 {placeholderEmoji}
               </div>
             )}
           </div>
 
           {/* Right: name + quantity + prices */}
-          <div className="flex-1 min-w-0">
+          <div className="flex min-w-0 flex-1 flex-col justify-center self-stretch">
             {/* Name row with quantity */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -179,7 +179,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                   )}
                 </button>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <button onClick={decrementQty} disabled={item.quantity <= 1}
                     className="w-9 h-9 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
                     −

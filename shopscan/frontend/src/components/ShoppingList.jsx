@@ -37,9 +37,10 @@ const FILTERS = [
 ]
 
 export default function ShoppingList() {
-  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, refetch } = useShoppingList()
+  const { items, loading, error, addItem, updateItem, deleteItem, checkItem, clearChecked, refreshPrices, refreshAllPrices, refetch } = useShoppingList()
   const [addOpen, setAddOpen] = useState(false)
   const [storeFilter, setStoreFilter] = useState('all')
+  const [refreshingAll, setRefreshingAll] = useState(false)
 
   const touchStartY = useRef(null)
   const listRef = useRef(null)
@@ -69,6 +70,16 @@ export default function ShoppingList() {
     : unchecked.filter(item => getBestStore(item.prices) === storeFilter)
 
   const filterCount = storeFilter !== 'all' ? filteredUnchecked.length : unchecked.length
+
+  const handleRefreshAllPrices = async () => {
+    if (refreshingAll || unchecked.length === 0) return
+    setRefreshingAll(true)
+    try {
+      await refreshAllPrices()
+    } finally {
+      setRefreshingAll(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-slate-900">
@@ -111,7 +122,7 @@ export default function ShoppingList() {
         </div>
 
         {/* Store filter pills */}
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {FILTERS.map(f => {
             const isActive = storeFilter === f.id
             const isAll = f.id === 'all'
@@ -124,7 +135,7 @@ export default function ShoppingList() {
               <button
                 key={f.id}
                 onClick={() => setStoreFilter(f.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border ${
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-medium transition-all whitespace-nowrap ${
                   isActive
                     ? isAll
                       ? 'bg-green-700 text-white border-green-500'
@@ -138,8 +149,8 @@ export default function ShoppingList() {
                     <span>{f.label}</span>
                   </>
                 ) : (
-                  <div className={`rounded-md px-2 py-1 ${isActive ? 'bg-white text-slate-950' : 'bg-white text-slate-950/90'}`}>
-                    <Logo className={`w-auto ${f.id === 'dunnes' ? 'h-4' : 'h-5'}`} />
+                  <div className={`rounded-md px-1.5 py-1 ${isActive ? 'bg-white text-slate-950' : 'bg-white text-slate-950/90'}`}>
+                    <Logo className={`w-auto ${f.id === 'dunnes' ? 'h-3.5' : 'h-4'}`} />
                   </div>
                 )}
                 {count > 0 && (
@@ -157,6 +168,22 @@ export default function ShoppingList() {
             )
           })}
         </div>
+
+        {unchecked.length > 0 && (
+          <div className="mt-3">
+            <button
+              onClick={handleRefreshAllPrices}
+              disabled={refreshingAll}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-50"
+            >
+              <svg className={`h-4 w-4 ${refreshingAll ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {refreshingAll ? 'Refreshing all prices...' : 'Refresh all prices'}
+            </button>
+          </div>
+        )}
 
         {/* Filter info bar */}
         {storeFilter !== 'all' && (

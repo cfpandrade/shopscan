@@ -2,46 +2,42 @@ import { Router } from 'express';
 import { getDb } from '../db.js';
 import { lookupBarcode } from '../services/openFoodFacts.js';
 import { fetchStorePrices } from '../services/storePrices.js';
-import { buildSearchQueries, getPrimarySearchQuery } from '../services/searchQueries.js';
+import {
+  buildSearchQueries,
+  buildStoreSearchQueries,
+  getPrimarySearchQuery,
+} from '../services/searchQueries.js';
+import { getLatestCachedByQueries } from '../cache.js';
 
 const router = Router();
 
-/**
- * Fetches the latest price cache entries for a given search query.
- * Returns { tesco: {...}|null, dunnes: {...}|null }
- */
-function getLatestPrices(searchQueries) {
-  if (!Array.isArray(searchQueries) || searchQueries.length === 0) {
-    return { tesco: null, dunnes: null };
-  }
+function mapCachedPrice(row) {
+  if (!row) return null;
 
-  const db = getDb();
-  const placeholders = searchQueries.map(() => '?').join(', ');
-  const rows = db
-    .prepare(
-      `SELECT store, search_query, price, price_per_unit, product_url, store_product_name, image_url, fetched_at
-       FROM price_cache
-       WHERE search_query IN (${placeholders})
-         AND expires_at > datetime('now')
-       ORDER BY fetched_at DESC`
-    )
-    .all(...searchQueries);
+  const expiryTimestamp = row.expires_at
+    ? Date.parse(row.expires_at.replace(' ', 'T') + 'Z')
+    : null;
 
-  const prices = { tesco: null, dunnes: null };
-  for (const row of rows) {
-    if (!prices[row.store]) {
-      prices[row.store] = {
-        price: row.price,
-        price_per_unit: row.price_per_unit,
-        product_url: row.product_url,
-        store_product_name: row.store_product_name,
-        image_url: row.image_url || null,
-        search_query: row.search_query,
-        fetched_at: row.fetched_at,
-      };
-    }
-  }
-  return prices;
+  return {
+    price: row.price,
+    price_per_unit: row.price_per_unit,
+    product_url: row.product_url,
+    store_product_name: row.store_product_name,
+    image_url: row.image_url || null,
+    search_query: row.search_query,
+    fetched_at: row.fetched_at,
+    stale: Number.isFinite(expiryTimestamp) ? expiryTimestamp < Date.now() : false,
+  };
+}
+
+function getLatestPrices(item) {
+  const tescoQueries = buildStoreSearchQueries(item, 'tesco');
+  const dunnesQueries = buildStoreSearchQueries(item, 'dunnes');
+
+  return {
+    tesco: mapCachedPrice(getLatestCachedByQueries(tescoQueries, 'tesco')),
+    dunnes: mapCachedPrice(getLatestCachedByQueries(dunnesQueries, 'dunnes')),
+  };
 }
 
 function getBestStore(prices) {
@@ -76,7 +72,7 @@ function getPreferredImage(fallbackImageUrl, prices) {
 function formatItem(row) {
   const name = row.product_name || row.custom_name || 'Unknown';
   const searchQueries = buildSearchQueries(row);
-  const prices = getLatestPrices(searchQueries);
+  const prices = getLatestPrices(row);
 
   return {
     id: row.id,
@@ -291,7 +287,7 @@ router.post('/:id/refresh-prices', async (req, res) => {
       return res.status(400).json({ error: 'No searchable name for this item' });
     }
 
-    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(searchQueries);
+    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item);
 
     res.json({
       id: item.id,
@@ -304,6 +300,57 @@ router.post('/:id/refresh-prices', async (req, res) => {
     });
   } catch (err) {
     console.error(`[list POST /${req.params.id}/refresh-prices]`, err);
+    res.status(500).json({ error: 'Failed to refresh prices' });
+  }
+});
+
+// POST /api/list/refresh-prices — re-fetch prices for all unchecked items
+router.post('/refresh-prices', async (req, res) => {
+  try {
+    const db = getDb();
+    const items = db
+      .prepare(
+        `SELECT sl.*, p.name AS product_name, p.brand, p.description
+         FROM shopping_list sl
+         LEFT JOIN products p ON sl.product_barcode = p.barcode
+         WHERE sl.checked = 0
+         ORDER BY sl.created_at DESC`
+      )
+      .all();
+
+    const refreshed = [];
+    const skipped = [];
+
+    for (const item of items) {
+      const primarySearchQuery = getPrimarySearchQuery(item);
+      const searchQueries = buildSearchQueries(item);
+
+      if (!primarySearchQuery || searchQueries.length === 0) {
+        skipped.push({ id: item.id, reason: 'No searchable name for this item' });
+        continue;
+      }
+
+      const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item);
+
+      refreshed.push({
+        id: item.id,
+        search_query: primarySearchQuery,
+        attempted_queries: searchQueries,
+        prices: {
+          tesco: tescoResults,
+          dunnes: dunnesResults,
+        },
+      });
+    }
+
+    res.json({
+      refreshed_count: refreshed.length,
+      skipped_count: skipped.length,
+      refreshed,
+      skipped,
+    });
+  } catch (err) {
+    console.error('[list POST /refresh-prices]', err);
     res.status(500).json({ error: 'Failed to refresh prices' });
   }
 });

@@ -96,6 +96,16 @@ export default function useShoppingList() {
     }
   }, [fetchList])
 
+  const refreshAllPrices = useCallback(async () => {
+    try {
+      await api.post('/list/refresh-prices')
+      await fetchList()
+    } catch (err) {
+      setError(err.message || 'Failed to refresh all prices')
+      throw err
+    }
+  }, [fetchList])
+
   return {
     items,
     loading,
@@ -106,6 +116,7 @@ export default function useShoppingList() {
     checkItem,
     clearChecked,
     refreshPrices,
+    refreshAllPrices,
     refetch: fetchList
   }
 }

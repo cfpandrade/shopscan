@@ -46,33 +46,33 @@ export default function PriceCard({ prices, loading }) {
         const price = formatPrice(data?.price)
         const perUnit = data?.price_per_unit
         const logoWrapClass = key === 'dunnes'
-          ? 'rounded-md bg-white px-2 py-1 text-slate-950'
-          : ''
+          ? 'rounded-md bg-white px-1.5 py-1 text-slate-950'
+          : 'px-0.5'
 
         return (
           <div
             key={key}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+            className={`grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-2 rounded-lg px-2.5 py-2 transition-all ${
               isBest ? 'bg-green-950 ring-1 ring-green-600' : 'bg-slate-700'
             }`}
           >
-            {/* Store logo */}
             <div className={logoWrapClass}>
-              <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-5' : 'h-7'}`} />
+              <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-3.5 sm:h-4' : 'h-4 sm:h-5'}`} />
             </div>
 
-            {/* Per unit */}
-            <span className="min-w-0 flex-1 truncate text-xs text-slate-400">
-              {perUnit || data?.store_product_name || ''}
-            </span>
-
-            <div className="ml-auto flex min-w-[5.75rem] items-center justify-end gap-2 text-right flex-shrink-0">
+            <div className="min-w-0">
+              <div className="truncate text-[11px] text-slate-300">
+                {perUnit || data?.store_product_name || ''}
+              </div>
               {isBest && price && (
-                <span className="text-xs text-green-500 font-medium">Best</span>
+                <div className="hidden text-[10px] font-medium uppercase tracking-wide text-green-400 sm:block">
+                  Best option
+                </div>
               )}
+            </div>
 
-              {/* Price */}
-              <span className={`min-w-[4.9rem] text-right text-base font-bold ${isBest ? 'text-green-400' : 'text-slate-100'}`}>
+            <div className="min-w-[4.6rem] text-right">
+              <span className={`block text-right text-[1.05rem] font-bold leading-none ${isBest ? 'text-green-400' : 'text-slate-100'}`}>
                 {price ?? 'N/A'}
               </span>
             </div>

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.11] - 2026-04-21
+
+### Fixed
+
+- Kept cached Tesco and Dunnes prices visible in the list even after cache expiry, so prices and supermarket images do not disappear between refreshes.
+- Tightened the mobile price rows so Dunnes prices stay inside the card and reduced supermarket logo sizes for smaller screens.
+- Centered the product image vertically in the card layout and kept supermarket images preferred whenever they are available.
+
+### Changed
+
+- Added a `Refresh all prices` action for unchecked items so the full list can be updated in one tap.
+- Improved Tesco own-brand matching by searching Dunnes with a brandless equivalent query instead of the literal Tesco product name.
+- Extended the fresh-cache window to 24 hours while still allowing manual refresh at any time.
+
 ## [1.0.10] - 2026-04-21
 
 ### Fixed

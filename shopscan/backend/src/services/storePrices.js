@@ -1,6 +1,6 @@
 import { searchTesco } from './tesco.js';
 import { searchDunnes } from './dunnes.js';
-import { buildSearchQueries } from './searchQueries.js';
+import { buildStoreSearchQueries } from './searchQueries.js';
 
 const STORE_TIMEOUT_MS = Number(process.env.PRICE_FETCH_TIMEOUT_MS || 12000);
 
@@ -38,7 +38,7 @@ function hasPriceResult(results) {
 }
 
 async function searchStoreAcrossQueries(store, searchFn, input) {
-  const queries = Array.isArray(input) ? input : buildSearchQueries(input);
+  const queries = Array.isArray(input) ? input : buildStoreSearchQueries(input, store);
   let bestNonPriceResult = null;
 
   for (const query of queries) {
