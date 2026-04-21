@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.10] - 2026-04-21
+
+### Fixed
+
+- Restored live Tesco and Dunnes price fetching in the addon by adding a browser-fingerprint HTML fallback that works inside the container.
+- Fixed supermarket product images so the app keeps the original scan image as a fallback when a store image fails.
+- Moved the checked toggle to the top-right controls area, enlarged the product image, and right-aligned store prices for a cleaner mobile card layout.
+- Improved price lookup accuracy by trying barcode, brand, name, and description candidates before giving up on a store search.
+
 ## [1.0.9] - 2026-04-21
 
 ### Changed

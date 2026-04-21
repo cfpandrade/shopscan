@@ -61,20 +61,21 @@ export default function PriceCard({ prices, loading }) {
               <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-5' : 'h-7'}`} />
             </div>
 
-            {/* Price */}
-            <span className={`text-sm font-bold flex-shrink-0 ${isBest ? 'text-green-400' : 'text-slate-100'}`}>
-              {price ?? 'N/A'}
+            {/* Per unit */}
+            <span className="min-w-0 flex-1 truncate text-xs text-slate-400">
+              {perUnit || data?.store_product_name || ''}
             </span>
 
-            {/* Per unit */}
-            {perUnit && (
-              <span className="text-xs text-slate-400 flex-1 truncate">{perUnit}</span>
-            )}
+            <div className="ml-auto flex min-w-[5.75rem] items-center justify-end gap-2 text-right flex-shrink-0">
+              {isBest && price && (
+                <span className="text-xs text-green-500 font-medium">Best</span>
+              )}
 
-            {/* Best price badge */}
-            {isBest && price && (
-              <span className="ml-auto text-xs text-green-500 font-medium flex-shrink-0">Best</span>
-            )}
+              {/* Price */}
+              <span className={`min-w-[4.9rem] text-right text-base font-bold ${isBest ? 'text-green-400' : 'text-slate-100'}`}>
+                {price ?? 'N/A'}
+              </span>
+            </div>
           </div>
         )
       })}

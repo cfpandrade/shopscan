@@ -9,6 +9,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [imageOpen, setImageOpen] = useState(false)
+  const [imageSrc, setImageSrc] = useState(item.image_url || item.fallback_image_url || null)
   const canSwipeToDelete = !item.checked
 
   useEffect(() => {
@@ -17,6 +18,10 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
       setSwiping(false)
     }
   }, [item.checked])
+
+  useEffect(() => {
+    setImageSrc(item.image_url || item.fallback_image_url || null)
+  }, [item.image_url, item.fallback_image_url])
 
   const handleTouchStart = (e) => {
     if (!canSwipeToDelete) return
@@ -117,48 +122,39 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           {/* Left: image */}
-          <div className="flex-shrink-0 flex flex-col items-center gap-2">
-            {item.image_url ? (
+          <div className="flex-shrink-0">
+            {imageSrc ? (
               <button
                 onClick={() => setImageOpen(true)}
-                className="w-20 h-20 rounded-2xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
+                className="w-28 h-28 rounded-2xl bg-slate-700 border border-slate-600 overflow-hidden active:scale-95 transition-transform"
                 aria-label="View larger image"
               >
                 <img
-                  src={item.image_url}
+                  src={imageSrc}
                   alt={item.name}
                   className="w-full h-full object-contain"
-                  onError={e => { e.currentTarget.style.display = 'none' }}
+                  onError={() => {
+                    if (item.fallback_image_url && imageSrc !== item.fallback_image_url) {
+                      setImageSrc(item.fallback_image_url)
+                    } else {
+                      setImageSrc(null)
+                    }
+                  }}
                 />
               </button>
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-slate-700 border border-slate-600 flex items-center justify-center text-3xl">
+              <div className="w-28 h-28 rounded-2xl bg-slate-700 border border-slate-600 flex items-center justify-center text-4xl">
                 {placeholderEmoji}
               </div>
             )}
-
-            {/* Checkbox below image */}
-            <button
-              onClick={() => onCheck(item.id, !item.checked)}
-              className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${
-                item.checked ? 'bg-green-600 border-green-600' : 'border-slate-500 bg-transparent'
-              }`}
-              aria-label={item.checked ? 'Uncheck' : 'Check'}
-            >
-              {item.checked && (
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
           </div>
 
           {/* Right: name + quantity + prices */}
           <div className="flex-1 min-w-0">
             {/* Name row with quantity */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className={`font-semibold text-sm leading-tight text-slate-100 ${item.checked ? 'line-through text-slate-400' : ''}`}>
                   {item.name}
@@ -168,17 +164,32 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                 )}
               </div>
 
-              {/* Quantity */}
-              <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-start">
-                <button onClick={decrementQty} disabled={item.quantity <= 1}
-                  className="w-8 h-8 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
-                  −
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                <button
+                  onClick={() => onCheck(item.id, !item.checked)}
+                  className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-colors ${
+                    item.checked ? 'bg-green-600 border-green-600' : 'border-slate-500 bg-transparent'
+                  }`}
+                  aria-label={item.checked ? 'Uncheck' : 'Check'}
+                >
+                  {item.checked && (
+                    <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
                 </button>
-                <span className="w-6 text-center text-sm font-medium text-slate-200">{item.quantity}</span>
-                <button onClick={incrementQty} disabled={item.quantity >= 99}
-                  className="w-8 h-8 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
-                  +
-                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button onClick={decrementQty} disabled={item.quantity <= 1}
+                    className="w-9 h-9 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
+                    −
+                  </button>
+                  <span className="w-6 text-center text-sm font-medium text-slate-200">{item.quantity}</span>
+                  <button onClick={incrementQty} disabled={item.quantity >= 99}
+                    className="w-9 h-9 rounded-xl bg-slate-700 text-slate-300 flex items-center justify-center text-lg font-bold disabled:opacity-30 active:bg-slate-600">
+                    +
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -200,9 +211,9 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
         </div>
       </div>
 
-      {imageOpen && item.image_url && (
+      {imageOpen && imageSrc && (
         <ImageModal
-          src={item.image_url}
+          src={imageSrc}
           alt={item.name}
           onClose={() => setImageOpen(false)}
         />

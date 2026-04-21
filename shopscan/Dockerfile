@@ -19,6 +19,8 @@ FROM ${BUILD_FROM}
 RUN apk add --no-cache \
     nginx \
     chromium \
+    python3 \
+    py3-pip \
     nss \
     freetype \
     freetype-dev \
@@ -26,6 +28,8 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     && rm -rf /var/cache/apk/*
+
+RUN python3 -m pip install --break-system-packages --no-cache-dir curl_cffi
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \

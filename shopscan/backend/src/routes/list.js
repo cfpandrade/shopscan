@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../db.js';
 import { lookupBarcode } from '../services/openFoodFacts.js';
 import { fetchStorePrices } from '../services/storePrices.js';
+import { buildSearchQueries, getPrimarySearchQuery } from '../services/searchQueries.js';
 
 const router = Router();
 
@@ -9,19 +10,22 @@ const router = Router();
  * Fetches the latest price cache entries for a given search query.
  * Returns { tesco: {...}|null, dunnes: {...}|null }
  */
-function getLatestPrices(searchQuery) {
-  if (!searchQuery) return { tesco: null, dunnes: null };
+function getLatestPrices(searchQueries) {
+  if (!Array.isArray(searchQueries) || searchQueries.length === 0) {
+    return { tesco: null, dunnes: null };
+  }
 
   const db = getDb();
+  const placeholders = searchQueries.map(() => '?').join(', ');
   const rows = db
     .prepare(
-      `SELECT store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at
+      `SELECT store, search_query, price, price_per_unit, product_url, store_product_name, image_url, fetched_at
        FROM price_cache
-       WHERE search_query = ?
+       WHERE search_query IN (${placeholders})
          AND expires_at > datetime('now')
        ORDER BY fetched_at DESC`
     )
-    .all(searchQuery);
+    .all(...searchQueries);
 
   const prices = { tesco: null, dunnes: null };
   for (const row of rows) {
@@ -32,6 +36,7 @@ function getLatestPrices(searchQuery) {
         product_url: row.product_url,
         store_product_name: row.store_product_name,
         image_url: row.image_url || null,
+        search_query: row.search_query,
         fetched_at: row.fetched_at,
       };
     }
@@ -65,23 +70,13 @@ function getPreferredImage(fallbackImageUrl, prices) {
   return fallbackImageUrl || null;
 }
 
-function buildSearchQuery(row) {
-  if (row.custom_name) return row.custom_name;
-
-  const parts = [row.brand, row.product_name]
-    .map((value) => value?.trim())
-    .filter(Boolean);
-
-  return parts.join(' ').trim() || row.product_name || null;
-}
-
 /**
  * Formats a raw DB row into the public item shape.
  */
 function formatItem(row) {
   const name = row.product_name || row.custom_name || 'Unknown';
-  const searchQuery = buildSearchQuery(row);
-  const prices = getLatestPrices(searchQuery);
+  const searchQueries = buildSearchQueries(row);
+  const prices = getLatestPrices(searchQueries);
 
   return {
     id: row.id,
@@ -89,6 +84,7 @@ function formatItem(row) {
     brand: row.brand || null,
     description: row.description || null,
     image_url: getPreferredImage(row.image_url, prices),
+    fallback_image_url: row.image_url || null,
     barcode: row.product_barcode || null,
     category: row.category || null,
     quantity: row.quantity,
@@ -97,6 +93,7 @@ function formatItem(row) {
     notes: row.notes || null,
     created_at: row.created_at,
     checked_at: row.checked_at || null,
+    search_query: getPrimarySearchQuery(row),
     prices,
   };
 }
@@ -288,16 +285,18 @@ router.post('/:id/refresh-prices', async (req, res) => {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    const searchQuery = buildSearchQuery(item);
-    if (!searchQuery) {
+    const primarySearchQuery = getPrimarySearchQuery(item);
+    const searchQueries = buildSearchQueries(item);
+    if (!primarySearchQuery || searchQueries.length === 0) {
       return res.status(400).json({ error: 'No searchable name for this item' });
     }
 
-    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(searchQuery);
+    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(searchQueries);
 
     res.json({
       id: item.id,
-      search_query: searchQuery,
+      search_query: primarySearchQuery,
+      attempted_queries: searchQueries,
       prices: {
         tesco: tescoResults,
         dunnes: dunnesResults,

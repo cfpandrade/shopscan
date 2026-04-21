@@ -1,8 +1,8 @@
-import { existsSync } from 'node:fs';
 import fetch from 'node-fetch';
-import { load } from 'cheerio';
-import { chromium } from 'playwright-core';
 import { getCached, setCache } from '../cache.js';
+import { createBrowserSession } from './browser.js';
+import { fetchHtmlWithBrowserFingerprint } from './htmlFetch.js';
+import { extractDunnesResultsFromHtml } from './storeParsing.js';
 
 const DUNNES_SEARCH_URL =
   'https://www.dunnesstoresgrocery.com/sm/delivery/rsid/258/results';
@@ -19,128 +19,14 @@ const REQUEST_HEADERS = {
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
 };
 
-function normalise(value) {
-  return (value || '').replace(/\s+/g, ' ').trim();
-}
-
-function toAbsoluteUrl(href) {
-  if (!href) return null;
-  return href.startsWith('http')
-    ? href
-    : `https://www.dunnesstoresgrocery.com${href}`;
-}
-
-function getChromiumPath() {
-  const candidates = [
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-      process.env.PUPPETEER_EXECUTABLE_PATH ||
-      process.env.CHROMIUM_PATH,
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/bin/chromium-browser',
-    '/bin/chromium',
-  ].filter(Boolean);
-
-  return candidates.find((candidate) => existsSync(candidate)) || null;
-}
-
-function extractDunnesResultsFromHtml(html) {
-  const $ = load(html);
-  const byUrl = new Map();
-
-  $('a[href*="/product/"]').each((_, link) => {
-    const product_url = toAbsoluteUrl($(link).attr('href'));
-    if (!product_url) return;
-
-    let container = $(link);
-    while (container.length) {
-      const text = normalise(container.text());
-      if (
-        text &&
-        /€\s*\d/.test(text) &&
-        /(Add to Cart|Open Product Description)/i.test(text) &&
-        text.length < 2400
-      ) {
-        break;
-      }
-      container = container.parent();
-    }
-
-    if (!container.length) {
-      container = $(link).parent();
-    }
-
-    const lines = container
-      .text()
-      .split('\n')
-      .map(normalise)
-      .filter(Boolean);
-
-    let price = null;
-    let price_per_unit = null;
-    for (const line of lines) {
-      if (price == null && /^€\s*\d/.test(line) && !line.includes('/')) {
-        const priceMatch = line.match(/€\s*(\d+(?:\.\d+)?)/);
-        if (priceMatch) {
-          price = Number.parseFloat(priceMatch[1]);
-        }
-      }
-
-      if (!price_per_unit && /^€\s*\d/.test(line) && line.includes('/')) {
-        price_per_unit = line;
-      }
-    }
-
-    const rawName = normalise(
-      $(link).text() ||
-      $(link).attr('aria-label') ||
-      $(link).find('img').attr('alt')
-    );
-    const store_product_name =
-      rawName ||
-      lines.find(
-        (line) =>
-          line &&
-          !/^€\s*\d/.test(line) &&
-          !/^(Add to Cart|Open Product Description|View Deal|SAVE )/i.test(line)
-      ) ||
-      null;
-
-    const image = container.find('img').first();
-    const image_url = toAbsoluteUrl(
-      image.attr('src') || image.attr('data-src') || image.attr('data-lazy-src')
-    );
-    const current = byUrl.get(product_url);
-    const candidate = {
-      store: 'dunnes',
-      price,
-      price_per_unit,
-      product_url,
-      store_product_name,
-      image_url,
-    };
-
-    if (!current) {
-      byUrl.set(product_url, candidate);
-      return;
-    }
-
-    byUrl.set(product_url, {
-      ...current,
-      price: current.price ?? candidate.price,
-      price_per_unit: current.price_per_unit ?? candidate.price_per_unit,
-      store_product_name: current.store_product_name || candidate.store_product_name,
-      image_url: current.image_url || candidate.image_url,
-    });
-  });
-
-  return Array.from(byUrl.values())
-    .filter((item) => item.price != null || item.store_product_name)
-    .slice(0, 3);
-}
-
 async function fetchDunnesHtml(query) {
-  const response = await fetch(`${DUNNES_SEARCH_URL}?q=${encodeURIComponent(query)}`, {
+  const url = `${DUNNES_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+  const fingerprintHtml = await fetchHtmlWithBrowserFingerprint('dunnes', url);
+  if (fingerprintHtml) {
+    return fingerprintHtml;
+  }
+
+  const response = await fetch(url, {
     headers: REQUEST_HEADERS,
     signal: AbortSignal.timeout(12000),
   });
@@ -176,49 +62,43 @@ export async function searchDunnes(query) {
   }
 
   let browser;
+  let context;
   let html = null;
   try {
-    const chromiumPath = getChromiumPath();
+    html = await fetchDunnesHtml(query);
 
-    if (chromiumPath) {
-      browser = await chromium.launch({
-        executablePath: chromiumPath,
-        args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-        headless: true,
-      });
+    const session = html ? null : await createBrowserSession(REQUEST_HEADERS['user-agent']);
 
-      const context = await browser.newContext({
-        userAgent: REQUEST_HEADERS['user-agent'],
-        locale: 'en-IE',
-      });
-      const page = await context.newPage();
+    if (session && !html) {
+      browser = session.browser;
+      context = session.context;
+      const page = session.page;
 
       const searchUrl = `${DUNNES_SEARCH_URL}?q=${encodeURIComponent(query)}`;
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
       await page
         .waitForFunction(
           () =>
-            document.querySelectorAll('a[href*="/product/"]').length > 0 ||
-            /Results|No results|Add to Cart/i.test(document.body.innerText),
-          { timeout: 15000 }
+            document.querySelectorAll('article[data-testid^="ProductCardWrapper-"], a[href*="/product/"]').length > 0 ||
+            /Results|No results|Add to Cart|Just a moment/i.test(document.body.innerText),
+          { timeout: 18000 }
         )
         .catch(() => {
           console.warn(`[dunnes] Search results not ready for "${query}" within timeout`);
         });
 
+      await page.waitForTimeout(1200).catch(() => {});
       html = await page.content();
-      await context.close();
     }
 
-    if (!html) {
-      html = await fetchDunnesHtml(query);
-    }
-
-    const results = html ? extractDunnesResultsFromHtml(html) : [];
+    const results = html ? extractDunnesResultsFromHtml(html, query) : [];
 
     const finalResults =
-      results && results.length > 0 ? results : ERROR_RESULT;
+      results && results.some((result) => result.price != null || result.store_product_name || result.image_url)
+        ? results
+        : ERROR_RESULT;
 
     // Cache the first (best) result
     const toCache = finalResults[0];
@@ -231,6 +111,11 @@ export async function searchDunnes(query) {
     console.error(`[dunnes] Error searching for "${query}":`, err.message);
     return ERROR_RESULT;
   } finally {
+    if (context) {
+      await context.close().catch((e) =>
+        console.warn('[dunnes] Failed to close browser context:', e.message)
+      );
+    }
     if (browser) {
       await browser.close().catch((e) =>
         console.warn('[dunnes] Failed to close browser:', e.message)
