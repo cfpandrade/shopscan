@@ -158,8 +158,8 @@ export default function ShoppingList() {
                     <span>{f.label}</span>
                   </>
                 ) : (
-                  <div className={`rounded-md px-1.5 py-1 ${isActive ? 'bg-white text-slate-950' : 'bg-white text-slate-950/90'}`}>
-                    <Logo className={`w-auto ${f.id === 'dunnes' ? 'h-3.5' : 'h-4'}`} />
+                  <div className={`flex h-7 w-[4.6rem] items-center justify-center rounded-md px-1 ${isActive ? 'bg-white text-slate-950' : 'bg-white text-slate-950/90'}`}>
+                    <Logo className={`w-auto ${f.id === 'dunnes' ? 'h-2.5' : 'h-3'}`} />
                   </div>
                 )}
                 {count > 0 && (

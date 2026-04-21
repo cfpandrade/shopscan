@@ -31,26 +31,26 @@ export function TescoLogo({ className = '' }) {
 export function DunnesLogo({ className = '' }) {
   // Dunnes Stores: monochrome wordmark used on a light chip
   return (
-    <svg viewBox="0 0 180 40" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Dunnes Stores">
+    <svg viewBox="0 0 140 40" xmlns="http://www.w3.org/2000/svg" className={className} aria-label="Dunnes Stores">
       <text
-        x="0"
+        x="8"
         y="24"
         fill="currentColor"
-        fontSize="27"
+        fontSize="22"
         fontWeight="800"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
-        letterSpacing="1.2"
+        letterSpacing="0.9"
       >
         DUNNES
       </text>
       <text
-        x="105"
+        x="72"
         y="38"
         fill="currentColor"
-        fontSize="15"
+        fontSize="12"
         fontWeight="700"
         fontFamily="'Helvetica Neue', Arial, sans-serif"
-        letterSpacing="2.4"
+        letterSpacing="1.9"
       >
         STORES
       </text>

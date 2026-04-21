@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.15] - 2026-04-21
+
+### Changed
+
+- Added price refresh windows at 5:00 AM and 5:00 PM Ireland time so cached prices can only be updated twice per day, even if users press refresh repeatedly.
+- Improved product matching by including brand and size/weight in search queries, reducing mismatches like `350g` versus `1kg`.
+- Reduced and normalized supermarket logos in the mobile UI and now show brand plus size under each product name.
+
 ## [1.0.14] - 2026-04-21
 
 ### Changed

@@ -44,10 +44,7 @@ export default function PriceCard({ prices, loading }) {
       {stores.map(({ key, Logo, data }) => {
         const isBest = best === key
         const price = formatPrice(data?.price)
-        const perUnit = data?.price_per_unit
-        const logoWrapClass = key === 'dunnes'
-          ? 'rounded-md bg-white px-1.5 py-1 text-slate-950'
-          : 'px-0.5'
+        const detailText = data?.store_product_name || data?.price_per_unit || ''
 
         return (
           <div
@@ -56,13 +53,13 @@ export default function PriceCard({ prices, loading }) {
               isBest ? 'bg-green-950 ring-1 ring-green-600' : 'bg-slate-700'
             }`}
           >
-            <div className={logoWrapClass}>
-              <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-3.5 sm:h-4' : 'h-4 sm:h-5'}`} />
+            <div className="flex h-7 w-[4.6rem] flex-shrink-0 items-center justify-center rounded-md bg-white px-1 text-slate-950">
+              <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-2.5 sm:h-3' : 'h-3 sm:h-3.5'}`} />
             </div>
 
             <div className="min-w-0">
               <div className="truncate text-[11px] text-slate-300">
-                {perUnit || data?.store_product_name || ''}
+                {detailText}
               </div>
               {isBest && price && (
                 <div className="hidden text-[10px] font-medium uppercase tracking-wide text-green-400 sm:block">

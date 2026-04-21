@@ -80,6 +80,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
 
   const decrementQty = () => { if (item.quantity > 1) onQuantityChange(item.id, item.quantity - 1) }
   const incrementQty = () => { if (item.quantity < 99) onQuantityChange(item.id, item.quantity + 1) }
+  const metaText = [item.brand, item.size].filter(Boolean).join(' • ')
 
   // Category-based placeholder emoji
   const placeholderEmoji = (() => {
@@ -159,8 +160,8 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
                 <p className={`font-semibold text-sm leading-tight text-slate-100 ${item.checked ? 'line-through text-slate-400' : ''}`}>
                   {item.name}
                 </p>
-                {item.brand && (
-                  <p className="text-xs text-slate-400 mt-0.5">{item.brand}</p>
+                {metaText && (
+                  <p className="text-xs text-slate-400 mt-0.5">{metaText}</p>
                 )}
               </div>
 

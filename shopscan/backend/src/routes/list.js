@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { getDb } from '../db.js';
 import { lookupBarcode } from '../services/openFoodFacts.js';
-import { fetchStorePrices, searchStorePrices } from '../services/storePrices.js';
+import { searchStorePrices } from '../services/storePrices.js';
+import { getPriceRefreshStatus } from '../services/priceRefreshWindow.js';
 import {
   buildSearchQueries,
   buildStoreSearchQueries,
@@ -27,6 +28,7 @@ function mapCachedPrice(row) {
     search_query: row.search_query,
     fetched_at: row.fetched_at,
     stale: Number.isFinite(expiryTimestamp) ? expiryTimestamp < Date.now() : false,
+    ...getPriceRefreshStatus(row.fetched_at),
   };
 }
 
@@ -78,6 +80,7 @@ function formatItem(row) {
     id: row.id,
     name,
     brand: row.brand || null,
+    size: row.product_size || null,
     description: row.description || null,
     image_url: getPreferredImage(row.image_url, prices),
     fallback_image_url: row.image_url || null,
@@ -98,7 +101,7 @@ function getRefreshableListItems() {
   const db = getDb();
   return db
     .prepare(
-      `SELECT sl.*, p.name AS product_name, p.brand, p.description
+      `SELECT sl.*, p.name AS product_name, p.brand, p.size AS product_size, p.description
        FROM shopping_list sl
        LEFT JOIN products p ON sl.product_barcode = p.barcode
        WHERE sl.checked = 0
@@ -136,6 +139,19 @@ function buildRefreshEntry(item) {
   };
 }
 
+function getStoreRefreshDecision(entry, store) {
+  const storeQueries = entry.storeQueries?.[store] || [];
+  const cachedRow = getLatestCachedByQueries(storeQueries, store);
+  const refreshStatus = getPriceRefreshStatus(cachedRow?.fetched_at);
+
+  return {
+    storeQueries,
+    cachedRow,
+    refreshStatus,
+    forceRefresh: !cachedRow || refreshStatus.canRefresh,
+  };
+}
+
 // GET /api/list — all items with product info and latest prices
 router.get('/', (req, res) => {
   try {
@@ -145,6 +161,7 @@ router.get('/', (req, res) => {
         `SELECT sl.*,
                 p.name  AS product_name,
                 p.brand,
+                p.size AS product_size,
                 p.description,
                 p.image_url,
                 p.category
@@ -199,7 +216,7 @@ router.post('/', async (req, res) => {
 
     const newItem = db
       .prepare(
-        `SELECT sl.*, p.name AS product_name, p.brand, p.description, p.image_url, p.category
+        `SELECT sl.*, p.name AS product_name, p.brand, p.size AS product_size, p.description, p.image_url, p.category
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -256,7 +273,7 @@ router.patch('/:id', (req, res) => {
 
     const updated = db
       .prepare(
-        `SELECT sl.*, p.name AS product_name, p.brand, p.description, p.image_url, p.category
+        `SELECT sl.*, p.name AS product_name, p.brand, p.size AS product_size, p.description, p.image_url, p.category
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -312,7 +329,7 @@ router.post('/:id/refresh-prices', async (req, res) => {
     const item = db
       .prepare(
         `SELECT sl.*, p.name AS product_name, p.brand
-                , p.description
+                , p.size AS product_size, p.description
          FROM shopping_list sl
          LEFT JOIN products p ON sl.product_barcode = p.barcode
          WHERE sl.id = ?`
@@ -329,12 +346,26 @@ router.post('/:id/refresh-prices', async (req, res) => {
       return res.status(400).json({ error: 'No searchable name for this item' });
     }
 
-    const { tesco: tescoResults, dunnes: dunnesResults } = await fetchStorePrices(item, { forceRefresh: true });
+    const entry = buildRefreshEntry(item);
+    const tescoDecision = getStoreRefreshDecision(entry, 'tesco');
+    const dunnesDecision = getStoreRefreshDecision(entry, 'dunnes');
+    const tescoResults = await searchStorePrices('tesco', item, { forceRefresh: tescoDecision.forceRefresh });
+    const dunnesResults = await searchStorePrices('dunnes', item, { forceRefresh: dunnesDecision.forceRefresh });
 
     res.json({
       id: item.id,
       search_query: primarySearchQuery,
       attempted_queries: searchQueries,
+      refresh_policy: {
+        tesco: {
+          updated: tescoDecision.forceRefresh,
+          next_refresh_at: tescoDecision.refreshStatus.nextRefreshAt,
+        },
+        dunnes: {
+          updated: dunnesDecision.forceRefresh,
+          next_refresh_at: dunnesDecision.refreshStatus.nextRefreshAt,
+        },
+      },
       prices: {
         tesco: tescoResults,
         dunnes: dunnesResults,
@@ -383,18 +414,26 @@ router.post('/refresh-prices', async (req, res) => {
         if (storeQueries.length === 0) continue;
 
         const queryKey = storeQueries.join(' || ');
-        const existingResults = resultsByStoreKey[store].get(queryKey);
+        const decision = getStoreRefreshDecision(entry, store);
+        const cacheKey = `${queryKey}::${decision.forceRefresh ? 'refresh' : 'locked'}`;
+        const existingResults = resultsByStoreKey[store].get(cacheKey);
         const refreshedItem = refreshedById.get(entry.item.id);
 
         if (!refreshedItem) continue;
+
+        refreshedItem.refresh_policy = refreshedItem.refresh_policy || {};
+        refreshedItem.refresh_policy[store] = {
+          updated: decision.forceRefresh,
+          next_refresh_at: decision.refreshStatus.nextRefreshAt,
+        };
 
         if (existingResults) {
           refreshedItem.prices[store] = existingResults;
           continue;
         }
 
-        const storeResults = await searchStorePrices(store, entry.item, { forceRefresh: true });
-        resultsByStoreKey[store].set(queryKey, storeResults);
+        const storeResults = await searchStorePrices(store, entry.item, { forceRefresh: decision.forceRefresh });
+        resultsByStoreKey[store].set(cacheKey, storeResults);
         refreshedItem.prices[store] = storeResults;
       }
     }

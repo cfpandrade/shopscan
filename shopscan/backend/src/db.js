@@ -24,6 +24,7 @@ export function initDb() {
       barcode TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       brand TEXT,
+      size TEXT,
       description TEXT,
       image_url TEXT,
       category TEXT,
@@ -61,6 +62,7 @@ export function initDb() {
 
   ensureColumn('price_cache', 'image_url', 'TEXT');
   ensureColumn('products', 'description', 'TEXT');
+  ensureColumn('products', 'size', 'TEXT');
 
   console.log(`Database initialised at ${DB_PATH}`);
   return db;
