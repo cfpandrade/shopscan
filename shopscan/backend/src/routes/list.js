@@ -9,7 +9,7 @@ import {
   buildStoreSearchQueries,
   getPrimarySearchQuery,
 } from '../services/searchQueries.js';
-import { getLatestCachedByQueries, getPriceHistoryByQueries } from '../cache.js';
+import { getLatestCachedByQueries, getPriceHistoryByQueries, deleteCacheByQueries } from '../cache.js';
 
 const router = Router();
 let refreshJob = null;
@@ -573,6 +573,58 @@ router.post('/:id/refresh-prices', async (req, res) => {
   } catch (err) {
     console.error(`[list POST /${req.params.id}/refresh-prices]`, err);
     res.status(500).json({ error: 'Failed to refresh prices' });
+  }
+});
+
+// POST /api/list/:id/force-refresh — clear cache, re-fetch product info and prices from scratch
+router.post('/:id/force-refresh', async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+
+    const item = db
+      .prepare(
+        `SELECT sl.*, p.name AS product_name
+                , COALESCE(sl.custom_brand, p.brand) AS brand
+                , COALESCE(sl.custom_size, p.size) AS product_size
+                , COALESCE(sl.custom_description, p.description) AS description
+         FROM shopping_list sl
+         LEFT JOIN products p ON sl.product_barcode = p.barcode
+         WHERE sl.id = ?`
+      )
+      .get(id);
+
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    // Re-fetch product info from OpenFoodFacts if we have a barcode
+    if (item.product_barcode) {
+      await lookupBarcode(item.product_barcode);
+    }
+
+    // Clear all price cache entries for every query this item can generate
+    const allQueries = [
+      ...buildStoreSearchQueries(item, 'tesco'),
+      ...buildStoreSearchQueries(item, 'dunnes'),
+    ];
+    deleteCacheByQueries([...new Set(allQueries)]);
+
+    // Re-fetch fresh prices, bypassing the refresh window
+    const primarySearchQuery = getPrimarySearchQuery(item);
+    const searchQueries = buildSearchQueries(item);
+    if (!primarySearchQuery || searchQueries.length === 0) {
+      return res.status(400).json({ error: 'No searchable name for this item' });
+    }
+
+    await searchStorePrices('tesco', item, { forceRefresh: true });
+    await searchStorePrices('dunnes', item, { forceRefresh: true });
+    const refreshedPrices = getLatestPrices(item);
+
+    res.json({ id: item.id, prices: refreshedPrices });
+  } catch (err) {
+    console.error(`[list POST /${req.params.id}/force-refresh]`, err);
+    res.status(500).json({ error: 'Failed to force refresh item' });
   }
 });
 
