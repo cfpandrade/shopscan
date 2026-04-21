@@ -1,6 +1,16 @@
 import { useEffect } from 'react'
 
-export default function StoreLinkModal({ storeName, productName, url, onClose }) {
+function formatDateTime(value) {
+  if (!value) return 'Unknown'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+  return new Intl.DateTimeFormat('en-IE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+export default function StoreLinkModal({ storeName, productName, url, matchLabel, lastRefreshAt, onClose }) {
   useEffect(() => {
     const handleEsc = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleEsc)
@@ -32,6 +42,9 @@ export default function StoreLinkModal({ storeName, productName, url, onClose })
             <h3 className="truncate text-sm font-semibold text-slate-100">
               {productName || 'Store product page'}
             </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              {matchLabel || 'Match not assessed'} • Last refresh {formatDateTime(lastRefreshAt)}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

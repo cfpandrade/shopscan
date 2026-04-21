@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import PriceCard from './PriceCard'
 import ImageModal from './ImageModal'
 import StoreLinkModal from './StoreLinkModal'
+import EditItemModal from './EditItemModal'
 
-export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices }) {
+export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices, onEditItem }) {
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const [swiping, setSwiping] = useState(false)
@@ -12,6 +13,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   const [imageOpen, setImageOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState(item.image_url || item.fallback_image_url || null)
   const [storeLink, setStoreLink] = useState(null)
+  const [editing, setEditing] = useState(false)
   const canSwipeToDelete = !item.checked
 
   useEffect(() => {
@@ -159,9 +161,21 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             {/* Name row with quantity */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <p className={`font-semibold text-sm leading-tight text-slate-100 ${item.checked ? 'line-through text-slate-400' : ''}`}>
-                  {item.name}
-                </p>
+                <div className="flex items-start gap-2">
+                  <p className={`font-semibold text-sm leading-tight text-slate-100 ${item.checked ? 'line-through text-slate-400' : ''}`}>
+                    {item.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="mt-0.5 rounded-full bg-slate-700 p-1 text-slate-300"
+                    aria-label="Edit item details"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6.768-6.768a2.5 2.5 0 113.536 3.536L12.536 14.536a2 2 0 01-.878.515L8 16l.949-3.658A2 2 0 019.464 11.46z" />
+                    </svg>
+                  </button>
+                </div>
                 {metaText && (
                   <p className="text-xs text-slate-400 mt-0.5">{metaText}</p>
                 )}
@@ -200,11 +214,13 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             <PriceCard
               prices={item.prices}
               loading={false}
-              onOpenStoreLink={({ store, url, productName }) => {
+              onOpenStoreLink={({ store, url, productName, matchLabel, lastRefreshAt }) => {
                 setStoreLink({
                   storeName: store === 'tesco' ? 'Tesco' : 'Dunnes Stores',
                   url,
                   productName,
+                  matchLabel,
+                  lastRefreshAt,
                 })
               }}
             />
@@ -237,7 +253,17 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           storeName={storeLink.storeName}
           productName={storeLink.productName}
           url={storeLink.url}
+          matchLabel={storeLink.matchLabel}
+          lastRefreshAt={storeLink.lastRefreshAt}
           onClose={() => setStoreLink(null)}
+        />
+      )}
+
+      {editing && (
+        <EditItemModal
+          item={item}
+          onClose={() => setEditing(false)}
+          onSave={(data) => onEditItem(item.id, data)}
         />
       )}
     </div>

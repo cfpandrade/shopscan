@@ -35,6 +35,9 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_barcode TEXT,
       custom_name TEXT,
+      custom_brand TEXT,
+      custom_size TEXT,
+      custom_description TEXT,
       quantity INTEGER DEFAULT 1,
       unit TEXT DEFAULT 'unit',
       checked INTEGER DEFAULT 0,
@@ -63,6 +66,9 @@ export function initDb() {
   ensureColumn('price_cache', 'image_url', 'TEXT');
   ensureColumn('products', 'description', 'TEXT');
   ensureColumn('products', 'size', 'TEXT');
+  ensureColumn('shopping_list', 'custom_brand', 'TEXT');
+  ensureColumn('shopping_list', 'custom_size', 'TEXT');
+  ensureColumn('shopping_list', 'custom_description', 'TEXT');
 
   console.log(`Database initialised at ${DB_PATH}`);
   return db;

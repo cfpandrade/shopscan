@@ -70,11 +70,6 @@ export function getLatestCachedByQueries(searchQueries, store) {
 export function setCache(searchQuery, store, data) {
   const db = getDb();
 
-  // Remove any existing entries for this query/store before inserting
-  db.prepare(
-    `DELETE FROM price_cache WHERE search_query = ? AND store = ?`
-  ).run(searchQuery, store);
-
   db.prepare(
     `INSERT INTO price_cache
        (search_query, store, price, price_per_unit, product_url, store_product_name, image_url, expires_at)
@@ -90,4 +85,23 @@ export function setCache(searchQuery, store, data) {
     data.image_url ?? null,
     `+${DEFAULT_CACHE_TTL_HOURS} hour`
   );
+}
+
+export function getPriceHistoryByQueries(searchQueries, store, limit = 5) {
+  if (!Array.isArray(searchQueries) || searchQueries.length === 0) {
+    return [];
+  }
+
+  const db = getDb();
+  const placeholders = searchQueries.map(() => '?').join(', ');
+  return db
+    .prepare(
+      `SELECT search_query, store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at, expires_at
+       FROM price_cache
+       WHERE store = ?
+         AND search_query IN (${placeholders})
+       ORDER BY fetched_at DESC
+       LIMIT ?`
+    )
+    .all(store, ...searchQueries, limit);
 }

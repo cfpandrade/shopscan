@@ -8,6 +8,7 @@ export default function useShoppingList() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [refreshStatus, setRefreshStatus] = useState(null)
 
   const fetchList = useCallback(async () => {
     setLoading(true)
@@ -101,8 +102,31 @@ export default function useShoppingList() {
 
   const refreshAllPrices = useCallback(async () => {
     try {
-      await api.post('/list/refresh-prices', {}, { timeout: BULK_REFRESH_TIMEOUT_MS })
+      setRefreshStatus({
+        status: 'starting',
+        progress: 0,
+        completed_items: 0,
+        total_items: 0,
+        current_store: null,
+        current_item_name: null,
+      })
+      const startRes = await api.post('/list/refresh-prices', {}, { timeout: BULK_REFRESH_TIMEOUT_MS })
+      setRefreshStatus(startRes.data)
+
+      let status = startRes.data
+      while (status?.status === 'running') {
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        const statusRes = await api.get('/list/refresh-prices/status')
+        status = statusRes.data
+        setRefreshStatus(status)
+      }
+
       await fetchList()
+      setRefreshStatus(status)
+
+      if (status?.status === 'failed') {
+        throw new Error(status?.error || 'Failed to refresh all prices')
+      }
     } catch (err) {
       setError(err.message || 'Failed to refresh all prices')
       throw err
@@ -120,6 +144,7 @@ export default function useShoppingList() {
     clearChecked,
     refreshPrices,
     refreshAllPrices,
+    refreshStatus,
     refetch: fetchList
   }
 }

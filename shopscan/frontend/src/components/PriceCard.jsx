@@ -5,10 +5,15 @@ function formatPrice(price) {
   return `€${Number(price).toFixed(2)}`
 }
 
+function formatComparisonValue(value, unit) {
+  if (value == null || !unit) return null
+  return `${unit} ${Number(value).toFixed(2)}`
+}
+
 function getBestStore(prices) {
   if (!prices) return null
-  const tesco = prices.tesco?.price
-  const dunnes = prices.dunnes?.price
+  const tesco = prices.tesco?.needs_review ? null : (prices.tesco?.comparison_metric ?? prices.tesco?.price)
+  const dunnes = prices.dunnes?.needs_review ? null : (prices.dunnes?.comparison_metric ?? prices.dunnes?.price)
   if (tesco == null && dunnes == null) return null
   if (tesco == null) return 'dunnes'
   if (dunnes == null) return 'tesco'
@@ -45,7 +50,13 @@ export default function PriceCard({ prices, loading, onOpenStoreLink }) {
         const isBest = best === key
         const price = formatPrice(data?.price)
         const detailText = data?.store_product_name || data?.price_per_unit || ''
+        const normalizedText = formatComparisonValue(data?.comparison_value, data?.comparison_unit)
         const clickable = Boolean(data?.product_url)
+        const statusTone = data?.match_status === 'mismatch'
+          ? 'text-amber-300'
+          : data?.match_status === 'size_adjusted'
+            ? 'text-sky-300'
+            : 'text-slate-400'
 
         return (
           <button
@@ -57,6 +68,8 @@ export default function PriceCard({ prices, loading, onOpenStoreLink }) {
                 store: key,
                 url: data.product_url,
                 productName: data.store_product_name || detailText || null,
+                matchLabel: data.match_label || null,
+                lastRefreshAt: data.fetched_at || null,
               })
             }}
             disabled={!clickable}
@@ -72,9 +85,12 @@ export default function PriceCard({ prices, loading, onOpenStoreLink }) {
               <div className="truncate text-[11px] text-slate-300">
                 {detailText}
               </div>
-              {isBest && price && (
-                <div className="hidden text-[10px] font-medium uppercase tracking-wide text-green-400 sm:block">
-                  Best option
+              <div className={`truncate text-[10px] ${statusTone}`}>
+                {data?.match_label || (isBest && price ? 'Best option' : '')}
+              </div>
+              {normalizedText && (
+                <div className="truncate text-[10px] text-slate-500">
+                  {normalizedText}
                 </div>
               )}
             </div>
