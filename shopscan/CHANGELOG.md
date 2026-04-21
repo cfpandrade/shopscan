@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.1] - 2026-04-21
+
+### Fixed
+
+- Tesco 403 errors: updated curl_cffi impersonation to Chrome 131 with full Sec-CH / Sec-Fetch headers that Akamai Bot Manager requires; older Chrome 99/110/120 profiles were being blocked.
+- Unit price comparison now recognises "litre", "liter", "litres", "liters" and "per litre" formats from Tesco and Dunnes, fixing cases where €/L could not be calculated and wrong best-store was shown (e.g. Dunnes €/L 1.49 losing to Tesco €/L 1.59 due to missing normalisation).
+- Normalised price (€/kg, €/L) now displays on the right side of each price row, next to the total price, so the comparison is immediately visible.
+- Store product page popup now opens directly in the external browser instead of an iframe; Tesco and Dunnes block iframes with `X-Frame-Options: DENY` so the embedded view was always blank.
+
 ## [1.1.0] - 2026-04-21
 
 ### Added
