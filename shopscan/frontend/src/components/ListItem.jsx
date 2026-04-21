@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import PriceCard from './PriceCard'
 import ImageModal from './ImageModal'
+import StoreLinkModal from './StoreLinkModal'
 
 export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices }) {
   const touchStartX = useRef(null)
@@ -10,6 +11,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
   const [refreshing, setRefreshing] = useState(false)
   const [imageOpen, setImageOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState(item.image_url || item.fallback_image_url || null)
+  const [storeLink, setStoreLink] = useState(null)
   const canSwipeToDelete = !item.checked
 
   useEffect(() => {
@@ -195,7 +197,17 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             </div>
 
             {/* Prices stacked vertically */}
-            <PriceCard prices={item.prices} loading={false} />
+            <PriceCard
+              prices={item.prices}
+              loading={false}
+              onOpenStoreLink={({ store, url, productName }) => {
+                setStoreLink({
+                  storeName: store === 'tesco' ? 'Tesco' : 'Dunnes Stores',
+                  url,
+                  productName,
+                })
+              }}
+            />
 
             {/* Refresh */}
             <div className="mt-2 flex justify-end">
@@ -217,6 +229,15 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
           src={imageSrc}
           alt={item.name}
           onClose={() => setImageOpen(false)}
+        />
+      )}
+
+      {storeLink && (
+        <StoreLinkModal
+          storeName={storeLink.storeName}
+          productName={storeLink.productName}
+          url={storeLink.url}
+          onClose={() => setStoreLink(null)}
         />
       )}
     </div>

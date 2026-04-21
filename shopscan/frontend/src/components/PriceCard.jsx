@@ -28,7 +28,7 @@ function PriceSkeleton() {
   )
 }
 
-export default function PriceCard({ prices, loading }) {
+export default function PriceCard({ prices, loading, onOpenStoreLink }) {
   if (loading) return <PriceSkeleton />
   if (!prices) return null
 
@@ -45,13 +45,24 @@ export default function PriceCard({ prices, loading }) {
         const isBest = best === key
         const price = formatPrice(data?.price)
         const detailText = data?.store_product_name || data?.price_per_unit || ''
+        const clickable = Boolean(data?.product_url)
 
         return (
-          <div
+          <button
             key={key}
-            className={`grid grid-cols-[auto,minmax(0,1fr),auto] items-center gap-2 rounded-lg px-2.5 py-2 transition-all ${
+            type="button"
+            onClick={() => {
+              if (!clickable || !onOpenStoreLink) return
+              onOpenStoreLink({
+                store: key,
+                url: data.product_url,
+                productName: data.store_product_name || detailText || null,
+              })
+            }}
+            disabled={!clickable}
+            className={`grid w-full grid-cols-[auto,minmax(0,1fr),auto] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all ${
               isBest ? 'bg-green-950 ring-1 ring-green-600' : 'bg-slate-700'
-            }`}
+            } ${clickable ? 'cursor-pointer hover:bg-slate-600/90 active:scale-[0.99]' : 'cursor-default'}`}
           >
             <div className="flex h-7 w-[4.6rem] flex-shrink-0 items-center justify-center rounded-md bg-white px-1 text-slate-950">
               <Logo className={`w-auto flex-shrink-0 ${key === 'dunnes' ? 'h-2.5 sm:h-3' : 'h-3 sm:h-3.5'}`} />
@@ -73,7 +84,7 @@ export default function PriceCard({ prices, loading }) {
                 {price ?? 'N/A'}
               </span>
             </div>
-          </div>
+          </button>
         )
       })}
     </div>

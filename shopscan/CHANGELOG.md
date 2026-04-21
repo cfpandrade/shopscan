@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.19] - 2026-04-21
+
+### Added
+
+- Tapping a Tesco or Dunnes price row now opens an in-app popup with the supermarket product page, plus an option to open it outside the addon for manual verification.
+
 ## [1.0.18] - 2026-04-21
 
 ### Fixed
