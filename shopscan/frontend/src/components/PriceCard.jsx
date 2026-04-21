@@ -35,20 +35,26 @@ function PriceSkeleton() {
   )
 }
 
-export default function PriceCard({ prices, loading, onOpenStoreLink, onConfirmMatch }) {
+function getPreviousPrice(history, currentPrice) {
+  if (!Array.isArray(history) || history.length < 2) return null
+  const prev = history.find(h => h.price != null && h.price !== currentPrice)
+  return prev?.price ?? null
+}
+
+export default function PriceCard({ prices, priceHistory, loading, onOpenStoreLink, onConfirmMatch }) {
   if (loading) return <PriceSkeleton />
   if (!prices) return null
 
   const best = getBestStore(prices)
 
   const stores = [
-    { key: 'tesco',  Logo: TescoLogo,  data: prices.tesco },
-    { key: 'dunnes', Logo: DunnesLogo, data: prices.dunnes },
+    { key: 'tesco',  Logo: TescoLogo,  data: prices.tesco,  history: priceHistory?.tesco },
+    { key: 'dunnes', Logo: DunnesLogo, data: prices.dunnes, history: priceHistory?.dunnes },
   ]
 
   return (
     <div className="space-y-1.5 mt-2">
-      {stores.map(({ key, Logo, data }) => {
+      {stores.map(({ key, Logo, data, history }) => {
         const isBest = best === key
         const price = formatPrice(data?.price)
         const detailText = data?.store_product_name || data?.price_per_unit || ''
@@ -56,6 +62,10 @@ export default function PriceCard({ prices, loading, onOpenStoreLink, onConfirmM
         const clickable = Boolean(data?.product_url)
         const needsReview = data?.needs_review
         const isConfirmed = data?.match_status === 'confirmed'
+        const prevPrice = getPreviousPrice(history, data?.price)
+        const prevText = prevPrice != null ? `was ${formatPrice(prevPrice)}` : null
+        const priceWentDown = prevPrice != null && data?.price != null && data.price < prevPrice
+        const priceWentUp   = prevPrice != null && data?.price != null && data.price > prevPrice
 
         const statusTone = needsReview
           ? 'text-amber-300'
@@ -104,6 +114,11 @@ export default function PriceCard({ prices, loading, onOpenStoreLink, onConfirmM
                 {normalizedText && (
                   <span className={`block text-right text-[10px] font-medium mt-0.5 ${isBest ? 'text-green-500/80' : 'text-slate-400'}`}>
                     {normalizedText}
+                  </span>
+                )}
+                {prevText && (
+                  <span className={`block text-right text-[10px] mt-0.5 ${priceWentDown ? 'text-green-500' : priceWentUp ? 'text-amber-400' : 'text-slate-500'}`}>
+                    {priceWentDown ? '↓ ' : priceWentUp ? '↑ ' : ''}{prevText}
                   </span>
                 )}
               </div>

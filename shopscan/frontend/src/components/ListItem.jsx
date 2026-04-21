@@ -224,6 +224,7 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             {/* Prices stacked vertically */}
             <PriceCard
               prices={item.prices}
+              priceHistory={item.price_history}
               loading={false}
               onOpenStoreLink={({ store, url, productName, matchLabel, lastRefreshAt }) => {
                 setStoreLink({
