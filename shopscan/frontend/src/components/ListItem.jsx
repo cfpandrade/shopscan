@@ -4,12 +4,13 @@ import ImageModal from './ImageModal'
 import StoreLinkModal from './StoreLinkModal'
 import EditItemModal from './EditItemModal'
 
-export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices, onEditItem }) {
+export default function ListItem({ item, onCheck, onDelete, onQuantityChange, onRefreshPrices, onForceRefresh, onEditItem }) {
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const [swiping, setSwiping] = useState(false)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
+  const [forceRefreshing, setForceRefreshing] = useState(false)
   const [imageOpen, setImageOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState(item.image_url || item.fallback_image_url || null)
   const [storeLink, setStoreLink] = useState(null)
@@ -79,6 +80,16 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
       await onRefreshPrices(item.id)
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  const handleForceRefresh = async () => {
+    if (forceRefreshing || refreshing) return
+    setForceRefreshing(true)
+    try {
+      await onForceRefresh(item.id)
+    } finally {
+      setForceRefreshing(false)
     }
   }
 
@@ -226,16 +237,31 @@ export default function ListItem({ item, onCheck, onDelete, onQuantityChange, on
             />
 
             {/* Refresh */}
-            <div className="mt-2 flex justify-end">
-              <button onClick={handleRefresh} disabled={refreshing}
-                className="text-xs text-slate-400 hover:text-green-400 flex items-center gap-1 transition-colors disabled:opacity-50">
-                <svg className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {refreshing ? 'Updating...' : 'Refresh prices'}
-              </button>
-            </div>
+            {(() => {
+              const hasNeedsReview = item.prices && Object.values(item.prices).some(p => p?.needs_review)
+              const busy = refreshing || forceRefreshing
+              return (
+                <div className="mt-2 flex items-center justify-end gap-3">
+                  {hasNeedsReview && (
+                    <button onClick={handleForceRefresh} disabled={busy}
+                      className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors disabled:opacity-50">
+                      <svg className={`w-3 h-3 ${forceRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                      {forceRefreshing ? 'Re-fetching...' : 'Force re-fetch'}
+                    </button>
+                  )}
+                  <button onClick={handleRefresh} disabled={busy}
+                    className="text-xs text-slate-400 hover:text-green-400 flex items-center gap-1 transition-colors disabled:opacity-50">
+                    <svg className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    {refreshing ? 'Updating...' : 'Refresh prices'}
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>

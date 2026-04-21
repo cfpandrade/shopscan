@@ -87,6 +87,13 @@ export function setCache(searchQuery, store, data) {
   );
 }
 
+export function deleteCacheByQueries(searchQueries) {
+  if (!Array.isArray(searchQueries) || searchQueries.length === 0) return;
+  const db = getDb();
+  const placeholders = searchQueries.map(() => '?').join(', ');
+  db.prepare(`DELETE FROM price_cache WHERE search_query IN (${placeholders})`).run(...searchQueries);
+}
+
 export function getPriceHistoryByQueries(searchQueries, store, limit = 5) {
   if (!Array.isArray(searchQueries) || searchQueries.length === 0) {
     return [];

@@ -100,6 +100,16 @@ export default function useShoppingList() {
     }
   }, [fetchList])
 
+  const forceRefreshItem = useCallback(async (id) => {
+    try {
+      await api.post(`/list/${id}/force-refresh`, {}, { timeout: SINGLE_REFRESH_TIMEOUT_MS })
+      await fetchList()
+    } catch (err) {
+      setError(err.message || 'Failed to force refresh item')
+      throw err
+    }
+  }, [fetchList])
+
   const refreshAllPrices = useCallback(async () => {
     try {
       setRefreshStatus({
@@ -143,6 +153,7 @@ export default function useShoppingList() {
     checkItem,
     clearChecked,
     refreshPrices,
+    forceRefreshItem,
     refreshAllPrices,
     refreshStatus,
     refetch: fetchList
