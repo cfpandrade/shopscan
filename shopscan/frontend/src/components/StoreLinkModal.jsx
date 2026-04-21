@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { TescoLogo, DunnesLogo } from './StoreLogos'
 
 function formatDateTime(value) {
   if (!value) return 'Unknown'
@@ -21,8 +22,12 @@ export default function StoreLinkModal({ storeName, productName, url, matchLabel
     }
   }, [onClose])
 
-  const handleOpenExternal = () => {
+  const isTesco = storeName?.toLowerCase().includes('tesco')
+  const Logo = isTesco ? TescoLogo : DunnesLogo
+
+  const handleOpen = () => {
     window.open(url, '_blank', 'noopener,noreferrer')
+    onClose()
   }
 
   return (
@@ -33,54 +38,44 @@ export default function StoreLinkModal({ storeName, productName, url, matchLabel
       aria-modal="true"
     >
       <div
-        className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.5rem] border border-slate-700 bg-slate-900 shadow-2xl"
+        className="w-full max-w-sm rounded-[1.5rem] border border-slate-700 bg-slate-900 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{storeName}</p>
-            <h3 className="truncate text-sm font-semibold text-slate-100">
-              {productName || 'Store product page'}
-            </h3>
-            <p className="mt-1 text-xs text-slate-400">
-              {matchLabel || 'Match not assessed'} • Last refresh {formatDateTime(lastRefreshAt)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenExternal}
-              className="rounded-full bg-slate-700 px-3 py-2 text-xs font-medium text-slate-100 transition-colors hover:bg-slate-600"
-            >
-              Open outside
-            </button>
-            <button
-              onClick={onClose}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition-colors hover:bg-slate-700"
-              aria-label="Close store page"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        {/* Store logo */}
+        <div className="flex justify-center mb-4">
+          <div className="flex h-10 w-28 items-center justify-center rounded-xl bg-white px-3">
+            <Logo className={`w-auto ${isTesco ? 'h-4' : 'h-3'}`} />
           </div>
         </div>
 
-        <div className="relative flex-1 bg-white">
-          <iframe
-            src={url}
-            title={`${storeName} product page`}
-            className="h-full w-full border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
+        {/* Product name */}
+        <p className="text-center text-base font-semibold text-slate-100 leading-snug mb-1">
+          {productName || 'Store product page'}
+        </p>
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/70 to-transparent p-3">
-            <p className="text-center text-xs text-slate-200">
-              If the supermarket blocks the embedded page, use “Open outside”.
-            </p>
-          </div>
-        </div>
+        {/* Match + last refresh */}
+        <p className="text-center text-xs text-slate-400 mb-5">
+          {matchLabel || 'Match not assessed'} · {formatDateTime(lastRefreshAt)}
+        </p>
+
+        {/* Open button */}
+        <button
+          onClick={handleOpen}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-green-500 active:bg-green-700"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open in {storeName}
+        </button>
+
+        <button
+          onClick={onClose}
+          className="mt-3 w-full rounded-2xl bg-slate-800 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   )

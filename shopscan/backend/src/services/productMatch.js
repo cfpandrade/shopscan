@@ -41,7 +41,7 @@ function uniqueTokens(values) {
 }
 
 function extractSizeCandidate(value) {
-  const match = normalise(value).match(/\b(\d+(?:[.,]\d+)?)\s?(kg|g|mg|lb|oz|l|ml|cl)\b/i);
+  const match = normalise(value).match(/\b(\d+(?:[.,]\d+)?)\s?(kg|g|mg|lb|oz|litres?|liters?|l|ml|cl)\b/i);
   if (!match) return null;
 
   const amount = Number.parseFloat(match[1].replace(',', '.'));
@@ -56,6 +56,10 @@ function extractSizeCandidate(value) {
     ml: { dimension: 'volume', baseAmount: amount, standardAmount: 1000, standardLabel: 'L' },
     cl: { dimension: 'volume', baseAmount: amount * 10, standardAmount: 1000, standardLabel: 'L' },
     l: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
+    litre: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
+    liter: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
+    litres: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
+    liters: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
   };
 
   const mapping = mappings[unit];
@@ -95,10 +99,10 @@ function parseUnitPriceText(value) {
   const price = Number.parseFloat(priceMatch[1].replace(',', '.'));
   const size = extractSizeCandidate(text);
   if (!size) {
-    if (/\/\s*kg\b/i.test(text)) {
+    if (/\/\s*kg\b/i.test(text) || /per\s+kg\b/i.test(text)) {
       return { dimension: 'mass', perStandardUnitPrice: price, standardLabel: 'kg' };
     }
-    if (/\/\s*l\b/i.test(text)) {
+    if (/\/\s*(?:l|litre|liter|litres|liters)\b/i.test(text) || /per\s+(?:l|litre|liter|litres|liters)\b/i.test(text)) {
       return { dimension: 'volume', perStandardUnitPrice: price, standardLabel: 'L' };
     }
     return null;

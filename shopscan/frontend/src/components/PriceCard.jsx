@@ -7,7 +7,10 @@ function formatPrice(price) {
 
 function formatComparisonValue(value, unit) {
   if (value == null || !unit) return null
-  return `${unit} ${Number(value).toFixed(2)}`
+  // unit is e.g. "€/L" or "€/kg" — insert value after the €
+  // Output: "€1.59/L"
+  const numStr = Number(value).toFixed(2)
+  return unit.replace('€', `€${numStr}`)
 }
 
 function getBestStore(prices) {
@@ -88,17 +91,17 @@ export default function PriceCard({ prices, loading, onOpenStoreLink }) {
               <div className={`truncate text-[10px] ${statusTone}`}>
                 {data?.match_label || (isBest && price ? 'Best option' : '')}
               </div>
-              {normalizedText && (
-                <div className="truncate text-[10px] text-slate-500">
-                  {normalizedText}
-                </div>
-              )}
             </div>
 
             <div className="min-w-[4.6rem] text-right">
               <span className={`block text-right text-[1.05rem] font-bold leading-none ${isBest ? 'text-green-400' : 'text-slate-100'}`}>
                 {price ?? 'N/A'}
               </span>
+              {normalizedText && (
+                <span className={`block text-right text-[10px] font-medium mt-0.5 ${isBest ? 'text-green-500/80' : 'text-slate-400'}`}>
+                  {normalizedText}
+                </span>
+              )}
             </div>
           </button>
         )
