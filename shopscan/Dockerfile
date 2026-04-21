@@ -21,6 +21,11 @@ RUN apk add --no-cache \
     chromium \
     python3 \
     py3-pip \
+    build-base \
+    pkgconf \
+    libffi \
+    libffi-dev \
+    python3-dev \
     nss \
     freetype \
     freetype-dev \
@@ -29,7 +34,12 @@ RUN apk add --no-cache \
     ttf-freefont \
     && rm -rf /var/cache/apk/*
 
-RUN python3 -m pip install --break-system-packages --no-cache-dir curl_cffi
+RUN ARCH="$(apk --print-arch)" \
+    && if [ "$ARCH" = "armv7" ]; then \
+      echo "Skipping curl_cffi install on unsupported arch: $ARCH"; \
+    else \
+      python3 -m pip install --break-system-packages --no-cache-dir curl_cffi; \
+    fi
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \

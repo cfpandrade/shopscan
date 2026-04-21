@@ -2,9 +2,6 @@
 import argparse
 import sys
 
-from curl_cffi import requests
-
-
 IMPERSONATION_PROFILES = {
     "tesco": ["safari17_0", "chrome120", "chrome110", "chrome99"],
     "dunnes": ["safari17_0", "chrome120", "safari18_0", "chrome110"],
@@ -19,6 +16,12 @@ def looks_blocked(store: str, html: str) -> bool:
 
 
 def main() -> int:
+    try:
+        from curl_cffi import requests
+    except Exception as exc:  # pragma: no cover - optional dependency on some arches
+        sys.stderr.write(f"curl_cffi unavailable: {exc}")
+        return 1
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--store", required=True, choices=["tesco", "dunnes"])
     parser.add_argument("--url", required=True)

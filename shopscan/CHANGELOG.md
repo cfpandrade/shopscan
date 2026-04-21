@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.18] - 2026-04-21
+
+### Fixed
+
+- Skipped `curl_cffi` installation on unsupported `armv7` builds and made the fingerprint fetch helper fall back cleanly, so the multi-arch GitHub Actions build can complete instead of failing on that architecture.
+
+## [1.0.17] - 2026-04-21
+
+### Fixed
+
+- Added the native Python build dependencies required by `curl_cffi` so multi-arch addon builds can complete on `armv7` instead of failing during the container image build.
+
 ## [1.0.16] - 2026-04-21
 
 ### Fixed
