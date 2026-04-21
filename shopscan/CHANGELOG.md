@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.16] - 2026-04-21
+
+### Fixed
+
+- Increased the frontend timeout for `Refresh all prices` and single-item refreshes so long supermarket refresh runs do not fail after 30 seconds.
+
 ## [1.0.15] - 2026-04-21
 
 ### Changed

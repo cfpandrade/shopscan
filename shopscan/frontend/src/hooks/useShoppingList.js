@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 
+const SINGLE_REFRESH_TIMEOUT_MS = 60000
+const BULK_REFRESH_TIMEOUT_MS = 180000
+
 export default function useShoppingList() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -88,7 +91,7 @@ export default function useShoppingList() {
 
   const refreshPrices = useCallback(async (id) => {
     try {
-      await api.post(`/list/${id}/refresh-prices`)
+      await api.post(`/list/${id}/refresh-prices`, {}, { timeout: SINGLE_REFRESH_TIMEOUT_MS })
       await fetchList()
     } catch (err) {
       setError(err.message || 'Failed to refresh prices')
@@ -98,7 +101,7 @@ export default function useShoppingList() {
 
   const refreshAllPrices = useCallback(async () => {
     try {
-      await api.post('/list/refresh-prices')
+      await api.post('/list/refresh-prices', {}, { timeout: BULK_REFRESH_TIMEOUT_MS })
       await fetchList()
     } catch (err) {
       setError(err.message || 'Failed to refresh all prices')
