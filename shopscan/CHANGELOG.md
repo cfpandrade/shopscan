@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Own-brand preference: when a store returns several products that match the search equally well, the store's own (usually cheapest) label now wins — Tesco own-brand in Tesco, Dunnes/St Bernard/Simply Better/My Family in Dunnes. An explicit brand in the search term (e.g. "Finish") still takes priority.
+- First backend tests (`npm test`) covering own-brand ranking and detection.
+
+### Fixed
+
+- Tesco often returning N/A: the lightweight `curl_cffi` fetch can come back as Tesco's empty SPA shell (HTTP 200, no products), which previously skipped the Playwright fallback so no products were ever parsed. The browser fallback now triggers whenever the fast fetch yields no products (applies to Dunnes too).
+
 ## [1.1.3] - 2026-04-21
 
 ### Added
