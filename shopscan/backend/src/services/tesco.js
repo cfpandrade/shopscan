@@ -58,36 +58,47 @@ export async function searchTesco(query, options = {}) {
     ];
   }
 
+  const hasProducts = (html) => {
+    if (!html) return false;
+    const results = extractTescoResultsFromHtml(html, query);
+    return results.some((r) => r.price != null || r.store_product_name || r.image_url);
+  };
+
   let browser;
   let context;
   let html = null;
   try {
     html = await fetchTescoHtml(query);
 
-    const session = html ? null : await createBrowserSession(REQUEST_HEADERS['user-agent']);
+    // The lightweight fetch often returns Tesco's SPA shell (HTTP 200, no
+    // products). Only when parsing finds nothing do we pay for a real browser,
+    // which executes the JS that populates the search results.
+    if (!hasProducts(html)) {
+      const session = await createBrowserSession(REQUEST_HEADERS['user-agent']);
 
-    if (session && !html) {
-      browser = session.browser;
-      context = session.context;
-      const page = session.page;
-      const url = `${TESCO_SEARCH_URL}?query=${encodeURIComponent(query)}&count=5`;
+      if (session) {
+        browser = session.browser;
+        context = session.context;
+        const page = session.page;
+        const url = `${TESCO_SEARCH_URL}?query=${encodeURIComponent(query)}&count=5`;
 
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-      await page
-        .waitForFunction(
-          () =>
-            document.querySelectorAll('li[data-testid][data-auto-available], a[href*="/products/"]').length > 0 ||
-            /Showing \d+ to \d+ of \d+ items|No results|Access denied|robot/i.test(document.body.innerText),
-          { timeout: 18000 }
-        )
-        .catch(() => {
-          console.warn(`[tesco] Search results not ready for "${query}" within timeout`);
-        });
+        await page
+          .waitForFunction(
+            () =>
+              document.querySelectorAll('li[data-testid][data-auto-available], a[href*="/products/"]').length > 0 ||
+              /Showing \d+ to \d+ of \d+ items|No results|Access denied|robot/i.test(document.body.innerText),
+            { timeout: 18000 }
+          )
+          .catch(() => {
+            console.warn(`[tesco] Search results not ready for "${query}" within timeout`);
+          });
 
-      await page.waitForTimeout(1200).catch(() => {});
-      html = await page.content();
+        await page.waitForTimeout(1200).catch(() => {});
+        html = await page.content();
+      }
     }
 
     const results = html ? extractTescoResultsFromHtml(html, query) : [];

@@ -62,36 +62,46 @@ export async function searchDunnes(query, options = {}) {
     ];
   }
 
+  const hasProducts = (html) => {
+    if (!html) return false;
+    const results = extractDunnesResultsFromHtml(html, query);
+    return results.some((r) => r.price != null || r.store_product_name || r.image_url);
+  };
+
   let browser;
   let context;
   let html = null;
   try {
     html = await fetchDunnesHtml(query);
 
-    const session = html ? null : await createBrowserSession(REQUEST_HEADERS['user-agent']);
+    // The lightweight fetch can return Dunnes' SPA shell (or a Cloudflare
+    // interstitial) without products. Fall back to a real browser only then.
+    if (!hasProducts(html)) {
+      const session = await createBrowserSession(REQUEST_HEADERS['user-agent']);
 
-    if (session && !html) {
-      browser = session.browser;
-      context = session.context;
-      const page = session.page;
+      if (session) {
+        browser = session.browser;
+        context = session.context;
+        const page = session.page;
 
-      const searchUrl = `${DUNNES_SEARCH_URL}?q=${encodeURIComponent(query)}`;
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        const searchUrl = `${DUNNES_SEARCH_URL}?q=${encodeURIComponent(query)}`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-      await page
-        .waitForFunction(
-          () =>
-            document.querySelectorAll('article[data-testid^="ProductCardWrapper-"], a[href*="/product/"]').length > 0 ||
-            /Results|No results|Add to Cart|Just a moment/i.test(document.body.innerText),
-          { timeout: 18000 }
-        )
-        .catch(() => {
-          console.warn(`[dunnes] Search results not ready for "${query}" within timeout`);
-        });
+        await page
+          .waitForFunction(
+            () =>
+              document.querySelectorAll('article[data-testid^="ProductCardWrapper-"], a[href*="/product/"]').length > 0 ||
+              /Results|No results|Add to Cart|Just a moment/i.test(document.body.innerText),
+            { timeout: 18000 }
+          )
+          .catch(() => {
+            console.warn(`[dunnes] Search results not ready for "${query}" within timeout`);
+          });
 
-      await page.waitForTimeout(1200).catch(() => {});
-      html = await page.content();
+        await page.waitForTimeout(1200).catch(() => {});
+        html = await page.content();
+      }
     }
 
     const results = html ? extractDunnesResultsFromHtml(html, query) : [];

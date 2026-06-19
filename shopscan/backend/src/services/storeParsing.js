@@ -42,18 +42,35 @@ function matchScore(query, name) {
   return score;
 }
 
-function sortResults(results, query) {
+// Own-label brands per store. Own-brand products are typically the cheapest,
+// so they win when two results match the query equally well (see sortResults).
+const OWN_BRAND_PATTERNS = {
+  tesco: [/\btesco\b/i],
+  dunnes: [/\bdunnes\b/i, /\bst\.?\s*bernard\b/i, /\bsimply\s+better\b/i, /\bmy\s+family\b/i],
+};
+
+export function isOwnBrand(store, name) {
+  const patterns = OWN_BRAND_PATTERNS[store] || [];
+  const text = normalise(name);
+  if (!text) return false;
+  return patterns.some((pattern) => pattern.test(text));
+}
+
+function sortResults(results, query, store) {
   return results
     .map((result, index) => ({
       ...result,
       _score: matchScore(query, result.store_product_name),
+      _ownBrand: isOwnBrand(store, result.store_product_name) ? 1 : 0,
       _index: index,
     }))
     .sort((left, right) => {
       if (right._score !== left._score) return right._score - left._score;
+      // Equally good match → prefer the store's own (cheaper) label.
+      if (right._ownBrand !== left._ownBrand) return right._ownBrand - left._ownBrand;
       return left._index - right._index;
     })
-    .map(({ _score, _index, ...result }) => result);
+    .map(({ _score, _ownBrand, _index, ...result }) => result);
 }
 
 function firstPriceLikeText(texts, predicate) {
@@ -120,7 +137,8 @@ export function extractTescoResultsFromHtml(html, query = '') {
 
   return sortResults(
     results.filter((result) => result.price != null || result.store_product_name || result.image_url),
-    query
+    query,
+    'tesco'
   ).slice(0, 3);
 }
 
@@ -166,7 +184,8 @@ export function extractDunnesResultsFromHtml(html, query = '') {
 
   return sortResults(
     results.filter((result) => result.price != null || result.store_product_name || result.image_url),
-    query
+    query,
+    'dunnes'
   ).slice(0, 3);
 }
 
