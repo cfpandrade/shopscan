@@ -1,9 +1,8 @@
 import { load } from 'cheerio';
+import { normaliseText, normaliseForMatch, wordSet, hasWord, compareSizes } from './textMatch.js';
 
 function normalise(value) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return normaliseText(value);
 }
 
 function cleanStoreProductName(value) {
@@ -15,31 +14,35 @@ function parsePrice(text) {
   return match ? Number.parseFloat(match[1]) : null;
 }
 
-function normaliseForMatch(value) {
-  return normalise(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
 function matchScore(query, name) {
   const queryText = normaliseForMatch(query);
   const nameText = normaliseForMatch(name);
 
   if (!queryText || !nameText) return 0;
   if (queryText === nameText) return 1000;
-  if (nameText.includes(queryText)) return 700;
+  // Whole-phrase presence, on word boundaries ("ham" must not hit "graham").
+  if (` ${nameText} `.includes(` ${queryText} `)) return 700;
 
-  const queryTokens = queryText.split(' ').filter((token) => token.length > 1);
+  const queryTokens = queryText.split(' ').filter((token) => token.length > 1 && !/^\d+$/.test(token));
+  const nameWords = wordSet(nameText);
   let score = 0;
 
   for (const token of queryTokens) {
-    if (nameText.includes(token)) {
-      score += /^\d{8,}$/.test(token) ? 250 : Math.min(token.length * 8, 80);
+    if (hasWord(nameWords, token)) {
+      score += Math.min(token.length * 8, 80);
     }
   }
 
-  return score;
+  // Whole-word matches only (a "ham" query must not match "graham"), so a
+  // zero score means the result shares nothing with the query — it is one of
+  // the store's "you might like" suggestions, not a hit.
+  if (score === 0) return 0;
+
+  const sizeComparison = compareSizes(query, name);
+  if (sizeComparison === 'match') score += 60;
+  if (sizeComparison === 'conflict') score -= 40;
+
+  return Math.max(score, 1);
 }
 
 // Own-label brands per store. Own-brand products are typically the cheapest,
@@ -57,6 +60,8 @@ export function isOwnBrand(store, name) {
 }
 
 function sortResults(results, query, store) {
+  const hasQuery = normaliseForMatch(query).length > 0;
+
   return results
     .map((result, index) => ({
       ...result,
@@ -64,6 +69,9 @@ function sortResults(results, query, store) {
       _ownBrand: isOwnBrand(store, result.store_product_name) ? 1 : 0,
       _index: index,
     }))
+    // A named result sharing no words with the query is a suggestion tile
+    // (or a hit for a raw-barcode query) — never return it as a match.
+    .filter((result) => !hasQuery || !result.store_product_name || result._score > 0)
     .sort((left, right) => {
       if (right._score !== left._score) return right._score - left._score;
       // Equally good match → prefer the store's own (cheaper) label.
@@ -71,6 +79,15 @@ function sortResults(results, query, store) {
       return left._index - right._index;
     })
     .map(({ _score, _ownBrand, _index, ...result }) => result);
+}
+
+const NO_RESULTS_PATTERN =
+  /couldn'?t find any results|no results found|no products found|we found 0 results|0 results for|didn'?t match any products/i;
+
+function isNoResultsPage($) {
+  const clone = $.root().clone();
+  clone.find('script, style, noscript, template').remove();
+  return NO_RESULTS_PATTERN.test(normalise(clone.text()));
 }
 
 function firstPriceLikeText(texts, predicate) {
@@ -97,6 +114,7 @@ function toAbsoluteUrl(baseUrl, href) {
 
 export function extractTescoResultsFromHtml(html, query = '') {
   const $ = load(html);
+  if (query && isNoResultsPage($)) return [];
   const results = [];
 
   $('li[data-testid][data-auto-available], li[data-testid]').each((_, element) => {
@@ -139,11 +157,12 @@ export function extractTescoResultsFromHtml(html, query = '') {
     results.filter((result) => result.price != null || result.store_product_name || result.image_url),
     query,
     'tesco'
-  ).slice(0, 3);
+  ).slice(0, 5);
 }
 
 export function extractDunnesResultsFromHtml(html, query = '') {
   const $ = load(html);
+  if (query && isNoResultsPage($)) return [];
   const results = [];
 
   $('article[data-testid^="ProductCardWrapper-"]').each((_, element) => {
@@ -186,7 +205,7 @@ export function extractDunnesResultsFromHtml(html, query = '') {
     results.filter((result) => result.price != null || result.store_product_name || result.image_url),
     query,
     'dunnes'
-  ).slice(0, 3);
+  ).slice(0, 5);
 }
 
 export function extractTescoProductFromHtml(html, url) {

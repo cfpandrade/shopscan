@@ -60,14 +60,30 @@ function getLatestPrices(item) {
 }
 
 function getBestStore(prices) {
-  const tesco = prices?.tesco?.needs_review ? null : (prices?.tesco?.comparison_metric ?? prices?.tesco?.price);
-  const dunnes = prices?.dunnes?.needs_review ? null : (prices?.dunnes?.comparison_metric ?? prices?.dunnes?.price);
+  const tesco = prices?.tesco?.needs_review ? null : prices?.tesco;
+  const dunnes = prices?.dunnes?.needs_review ? null : prices?.dunnes;
+  const tescoHasValue = tesco != null && (tesco.comparison_value != null || tesco.price != null);
+  const dunnesHasValue = dunnes != null && (dunnes.comparison_value != null || dunnes.price != null);
 
-  if (tesco == null && dunnes == null) return null;
-  if (tesco == null) return 'dunnes';
-  if (dunnes == null) return 'tesco';
+  if (!tescoHasValue && !dunnesHasValue) return null;
+  if (!tescoHasValue) return 'dunnes';
+  if (!dunnesHasValue) return 'tesco';
 
-  return Number(tesco) <= Number(dunnes) ? 'tesco' : 'dunnes';
+  // Only compare unit prices when both are in the same unit (€/kg vs €/kg);
+  // otherwise fall back to absolute prices so we never rank €/kg against €.
+  if (
+    tesco.comparison_value != null &&
+    dunnes.comparison_value != null &&
+    tesco.comparison_unit === dunnes.comparison_unit
+  ) {
+    return Number(tesco.comparison_value) <= Number(dunnes.comparison_value) ? 'tesco' : 'dunnes';
+  }
+
+  if (tesco.price != null && dunnes.price != null) {
+    return Number(tesco.price) <= Number(dunnes.price) ? 'tesco' : 'dunnes';
+  }
+
+  return tesco.price != null ? 'tesco' : 'dunnes';
 }
 
 function getPreferredImage(fallbackImageUrl, prices) {

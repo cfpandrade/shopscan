@@ -1,14 +1,15 @@
-function normalise(value) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import {
+  normaliseText,
+  normaliseForMatch,
+  normaliseToken,
+  wordSet,
+  hasWord,
+  extractSizeCandidate,
+} from './textMatch.js';
+import { isOwnBrand } from './storeParsing.js';
 
-function normaliseTokenText(value) {
-  return normalise(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+function normalise(value) {
+  return normaliseText(value);
 }
 
 function tokenize(value) {
@@ -25,7 +26,7 @@ function tokenize(value) {
     'pk',
   ]);
 
-  return normaliseTokenText(value)
+  return normaliseForMatch(value)
     .split(' ')
     .filter(
       (token) =>
@@ -33,44 +34,12 @@ function tokenize(value) {
         !/^\d+$/.test(token) &&
         !/^\d+(?:[.,]\d+)?(?:kg|g|mg|lb|oz|l|ml|cl)$/.test(token) &&
         !ignoredTokens.has(token)
-    );
+    )
+    .map((token) => normaliseToken(token));
 }
 
 function uniqueTokens(values) {
   return [...new Set(values.flatMap((value) => tokenize(value)))];
-}
-
-function extractSizeCandidate(value) {
-  const match = normalise(value).match(/\b(\d+(?:[.,]\d+)?)\s?(kg|g|mg|lb|oz|litres?|liters?|l|ml|cl)\b/i);
-  if (!match) return null;
-
-  const amount = Number.parseFloat(match[1].replace(',', '.'));
-  const unit = match[2].toLowerCase();
-
-  const mappings = {
-    mg: { dimension: 'mass', baseAmount: amount / 1000, standardAmount: 1000, standardLabel: 'kg' },
-    g: { dimension: 'mass', baseAmount: amount, standardAmount: 1000, standardLabel: 'kg' },
-    kg: { dimension: 'mass', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'kg' },
-    oz: { dimension: 'mass', baseAmount: amount * 28.3495, standardAmount: 1000, standardLabel: 'kg' },
-    lb: { dimension: 'mass', baseAmount: amount * 453.592, standardAmount: 1000, standardLabel: 'kg' },
-    ml: { dimension: 'volume', baseAmount: amount, standardAmount: 1000, standardLabel: 'L' },
-    cl: { dimension: 'volume', baseAmount: amount * 10, standardAmount: 1000, standardLabel: 'L' },
-    l: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
-    litre: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
-    liter: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
-    litres: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
-    liters: { dimension: 'volume', baseAmount: amount * 1000, standardAmount: 1000, standardLabel: 'L' },
-  };
-
-  const mapping = mappings[unit];
-  if (!mapping) return null;
-
-  return {
-    raw: match[0],
-    amount,
-    unit,
-    ...mapping,
-  };
 }
 
 function parseItemSize(item) {
@@ -162,18 +131,65 @@ function getNameOnlyCoverage(item, result) {
 function hasBrandMismatch(item, result) {
   const brandTokens = uniqueTokens([item?.brand]);
   if (brandTokens.length === 0) return false;
-  const resultText = normaliseTokenText(result?.store_product_name);
-  return !brandTokens.some((token) => resultText.includes(token));
+  const resultWords = wordSet(result?.store_product_name);
+  return !brandTokens.some((token) => hasWord(resultWords, token));
 }
 
-export function assessStoreMatch(item, result) {
+const STORE_BRAND_NAMES = ['tesco', 'dunnes', 'st bernard', 'simply better', 'my family'];
+
+function isStoreOwnBrandItem(item) {
+  const text = normaliseForMatch([item?.brand, item?.product_name, item?.custom_name, item?.name].filter(Boolean).join(' '));
+  return STORE_BRAND_NAMES.some((brand) => text.includes(brand));
+}
+
+/**
+ * A Tesco own-brand item matched to a Dunnes own-brand product (or vice
+ * versa) is the intended generic substitution, not a brand mismatch.
+ */
+function isOwnBrandEquivalent(item, result, store) {
+  if (!store) return false;
+  return isStoreOwnBrandItem(item) && isOwnBrand(store, result?.store_product_name);
+}
+
+function getBrandMismatch(item, result, store) {
+  return hasBrandMismatch(item, result) && !isOwnBrandEquivalent(item, result, store);
+}
+
+/**
+ * Relevance of a store result for a list item, used to pick the best result
+ * across search-query variants. Roughly 0..1.35; ≥0.75 is a confident match.
+ */
+export function scoreStoreResult(item, result, store) {
+  if (!result || result.error || !result.store_product_name) return 0;
+
+  const nameCoverage = Math.max(getNameCoverage(item, result), getNameOnlyCoverage(item, result));
+  if (nameCoverage === 0) return 0;
+
+  let score = nameCoverage;
+
+  const itemSize = parseItemSize(item);
+  const storeSize = parseStoreSize(result);
+  if (itemSize && storeSize && itemSize.dimension === storeSize.dimension) {
+    const ratio = storeSize.baseAmount / itemSize.baseAmount;
+    score += ratio >= 0.95 && ratio <= 1.05 ? 0.2 : -0.15;
+  }
+
+  const brandTokens = uniqueTokens([item?.brand]);
+  if (brandTokens.length > 0) {
+    score += getBrandMismatch(item, result, store) ? -0.3 : 0.15;
+  }
+
+  return score;
+}
+
+export function assessStoreMatch(item, result, store) {
   if (!result) return null;
 
   const itemSize = parseItemSize(item);
   const storeSize = parseStoreSize(result);
   const comparablePrice = getComparablePrice(result);
   const nameCoverage = Math.max(getNameCoverage(item, result), getNameOnlyCoverage(item, result));
-  const brandMismatch = hasBrandMismatch(item, result);
+  const brandMismatch = getBrandMismatch(item, result, store);
 
   let matchStatus = 'close';
   let matchLabel = 'Close match';
@@ -205,6 +221,15 @@ export function assessStoreMatch(item, result) {
     matchStatus = 'close';
     matchLabel = 'Close match';
     needsReview = false;
+  }
+
+  // The item names a brand that the store result does not carry: flag it for
+  // review even when the generic words line up, so a Finish item never passes
+  // silently as a Fairy price.
+  if (brandMismatch) {
+    if (matchStatus === 'exact') matchStatus = 'close';
+    matchLabel = 'Different brand';
+    needsReview = true;
   }
 
   return {
