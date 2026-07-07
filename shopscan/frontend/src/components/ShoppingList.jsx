@@ -4,6 +4,7 @@ import ListItem from './ListItem'
 import AddItemModal from './AddItemModal'
 import SettingsModal from './SettingsModal'
 import { TescoLogo, DunnesLogo } from './StoreLogos'
+import { getBestStore } from '../utils/prices'
 
 function SkeletonCard() {
   return (
@@ -21,15 +22,6 @@ function SkeletonCard() {
   )
 }
 
-function getBestStore(prices) {
-  if (!prices) return null
-  const t = prices.tesco?.needs_review ? null : (prices.tesco?.comparison_metric ?? prices.tesco?.price)
-  const d = prices.dunnes?.needs_review ? null : (prices.dunnes?.comparison_metric ?? prices.dunnes?.price)
-  if (t == null && d == null) return null
-  if (t == null) return 'dunnes'
-  if (d == null) return 'tesco'
-  return Number(t) <= Number(d) ? 'tesco' : 'dunnes'
-}
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -45,27 +37,9 @@ function generateShareText(items) {
   const active = items.filter(i => !i.checked)
   if (active.length === 0) return 'ShopScan IE — list is empty'
 
-  const tesco  = active.filter(i => {
-    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
-    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
-    if (t == null && d == null) return false
-    if (d == null) return true
-    if (t == null) return false
-    return Number(t) <= Number(d)
-  })
-  const dunnes = active.filter(i => {
-    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
-    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
-    if (t == null && d == null) return false
-    if (t == null) return true
-    if (d == null) return false
-    return Number(d) < Number(t)
-  })
-  const noprice = active.filter(i => {
-    const t = i.prices?.tesco?.needs_review ? null : (i.prices?.tesco?.comparison_metric ?? i.prices?.tesco?.price)
-    const d = i.prices?.dunnes?.needs_review ? null : (i.prices?.dunnes?.comparison_metric ?? i.prices?.dunnes?.price)
-    return t == null && d == null
-  })
+  const tesco  = active.filter(i => getBestStore(i.prices) === 'tesco')
+  const dunnes = active.filter(i => getBestStore(i.prices) === 'dunnes')
+  const noprice = active.filter(i => getBestStore(i.prices) === null)
 
   const lines = ['🛒 ShopScan IE', '']
   const fmtItem = (item, store) => {

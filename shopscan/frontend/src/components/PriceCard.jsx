@@ -1,4 +1,5 @@
 import { TescoLogo, DunnesLogo } from './StoreLogos'
+import { getBestStore } from '../utils/prices'
 
 function formatPrice(price) {
   if (price == null) return null
@@ -10,16 +11,6 @@ function formatComparisonValue(value, unit) {
   // unit is e.g. "€/L" or "€/kg" — insert value after the €
   const numStr = Number(value).toFixed(2)
   return unit.replace('€', `€${numStr}`)
-}
-
-function getBestStore(prices) {
-  if (!prices) return null
-  const tesco = prices.tesco?.needs_review ? null : (prices.tesco?.comparison_metric ?? prices.tesco?.price)
-  const dunnes = prices.dunnes?.needs_review ? null : (prices.dunnes?.comparison_metric ?? prices.dunnes?.price)
-  if (tesco == null && dunnes == null) return null
-  if (tesco == null) return 'dunnes'
-  if (dunnes == null) return 'tesco'
-  return Number(tesco) <= Number(dunnes) ? 'tesco' : 'dunnes'
 }
 
 function PriceSkeleton() {

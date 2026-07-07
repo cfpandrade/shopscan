@@ -131,7 +131,6 @@ export function buildSearchQueries(itemOrQuery) {
   const candidates = [];
   const seen = new Set();
 
-  addCandidate(candidates, seen, getBarcodeCandidate(itemOrQuery));
   addCandidate(candidates, seen, getPrimarySearchQuery(itemOrQuery));
   addCandidate(candidates, seen, getBrandNameCandidate(itemOrQuery));
   addCandidate(candidates, seen, getNameSizeCandidate(itemOrQuery));
@@ -145,6 +144,10 @@ export function buildSearchQueries(itemOrQuery) {
   addCandidate(candidates, seen, getDescriptionSizeCandidate(itemOrQuery));
   addCandidate(candidates, seen, description);
   addCandidate(candidates, seen, size);
+
+  // Raw barcode goes last: store search boxes rarely resolve GTINs, and when
+  // they return nothing the page fills with unrelated suggestion tiles.
+  addCandidate(candidates, seen, getBarcodeCandidate(itemOrQuery));
 
   return candidates;
 }

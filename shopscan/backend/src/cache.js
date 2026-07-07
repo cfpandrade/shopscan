@@ -16,7 +16,7 @@ export function getCached(searchQuery, store) {
       `SELECT search_query, store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at, expires_at
        FROM price_cache
        WHERE search_query = ? AND store = ?
-       ORDER BY fetched_at DESC
+       ORDER BY fetched_at DESC, rowid DESC
        LIMIT 1`
     )
     .get(searchQuery, store);
@@ -31,7 +31,7 @@ export function getLatestCached(searchQuery, store) {
       `SELECT search_query, store, price, price_per_unit, product_url, store_product_name, image_url, fetched_at, expires_at
        FROM price_cache
        WHERE search_query = ? AND store = ?
-       ORDER BY fetched_at DESC
+       ORDER BY fetched_at DESC, rowid DESC
        LIMIT 1`
     )
     .get(searchQuery, store);
@@ -52,7 +52,7 @@ export function getLatestCachedByQueries(searchQueries, store) {
        FROM price_cache
        WHERE store = ?
          AND search_query IN (${placeholders})
-       ORDER BY fetched_at DESC
+       ORDER BY fetched_at DESC, rowid DESC
        LIMIT 1`
     )
     .get(store, ...searchQueries);
@@ -107,7 +107,7 @@ export function getPriceHistoryByQueries(searchQueries, store, limit = 5) {
        FROM price_cache
        WHERE store = ?
          AND search_query IN (${placeholders})
-       ORDER BY fetched_at DESC
+       ORDER BY fetched_at DESC, rowid DESC
        LIMIT ?`
     )
     .all(store, ...searchQueries, limit);
