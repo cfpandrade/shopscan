@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0] - 2026-07-07
+
+### Fixed
+
+- Wrong products being matched: the search flow used to accept the first query variant that returned *any* priced result — including the store's "you might like" suggestion tiles on no-result pages. It now scores every candidate against the item (name coverage + brand + pack size), keeps searching until a confident match is found, and picks the best-scoring result overall. The corrected selection is what gets cached and shown in the list.
+- Result ranking matched substrings instead of whole words ("ham" matched "Graham Crackers"). Matching is now word-boundary based with plural and spelling-variant tolerance (yoghurt/yogurt).
+- Results sharing no words with the query (suggestion tiles, raw-barcode searches) are filtered out, and explicit "no results found" pages are detected instead of being parsed as hits.
+- Raw barcodes are no longer sent to store search boxes as the first query — they rarely resolve and often returned unrelated products. The barcode is now the last-resort query.
+- Brand mismatches are now flagged: an item with an explicit brand (e.g. Finish) matched to a different-brand product shows "Different brand" and needs review, instead of silently passing as an exact match. Own-brand substitution across stores (Tesco item ↔ Dunnes own label) is still allowed without a flag.
+- Best-store comparison could rank a €/kg unit price against a plain € price when only one store had unit pricing. Unit prices are now only compared in the same unit (backend and frontend), falling back to absolute prices otherwise.
+- Pack size now influences ranking: when the item specifies a size, the matching pack size outranks a different one (2L milk no longer loses to the 500ml result).
+
 ## [1.1.4] - 2026-06-19
 
 ### Added
